@@ -65,13 +65,11 @@ public class JsonWebToken extends SystemComponent {
             Signature signer = Signature.getInstance(signAlgorithm, "BC");
             signer.initSign(pkey, prng);
             signer.update(String.join(".", header, payload).getBytes());
-            return Objects.equals(signature, Base64.getEncoder().encodeToString(signer.sign()));
-        } catch (NoSuchAlgorithmException e) {
+            return Objects.equals(signature, base64Encoder.encodeToString(signer.sign()));
+        } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
             throw new UnreachableException(e);
         } catch (SignatureException e) {
             return false;
-        } catch (NoSuchProviderException e) {
-            throw new UnreachableException(e);
         } catch (InvalidKeyException e) {
             return false;
         }
@@ -110,11 +108,11 @@ public class JsonWebToken extends SystemComponent {
                 Signature signature = Signature.getInstance(signAlgorithm, "BC");
                 signature.initSign(pkey, prng);
                 signature.update(String.join(".", encodedHeader, payload).getBytes());
-                encodedSignature = Base64.getEncoder().encodeToString(signature.sign());
+                encodedSignature = base64Encoder.encodeToString(signature.sign());
             }
             return String.join(".", encodedHeader, payload, encodedSignature);
         } catch (NoSuchAlgorithmException e) {
-            throw new MisconfigurationException(""); //TODO
+            throw new UnreachableException(e);
         } catch (SignatureException e) {
             throw new MisconfigurationException(""); //TODO
         } catch (NoSuchProviderException e) {
@@ -127,14 +125,14 @@ public class JsonWebToken extends SystemComponent {
     public String sign(Map<String, Object> claims, JwtHeader header, PrivateKey key) {
         String encodedPayload = some(claims,
                 p -> mapper.writeValueAsBytes(p),
-                s -> Base64.getEncoder().encodeToString(s)).orElse(null);
+                s -> base64Encoder.encodeToString(s)).orElse(null);
         return sign(encodedPayload, header, key);
     }
 
     public String sign(JwtClaim claims, JwtHeader header, PrivateKey key) {
         String encodedPayload = some(claims,
                 p -> mapper.writeValueAsBytes(p),
-                s -> Base64.getEncoder().encodeToString(s)).orElse(null);
+                s -> base64Encoder.encodeToString(s)).orElse(null);
         return sign(encodedPayload, header, key);
     }
 
