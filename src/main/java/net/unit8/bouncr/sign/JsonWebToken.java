@@ -50,7 +50,7 @@ public class JsonWebToken extends SystemComponent {
     public <T> T decodePayload(String encoded, TypeReference<T> payloadType) {
         return some(encoded,
                 enc -> new String(base64Decoder.decode(enc)),
-                plain -> (T)mapper.readValue(plain, payloadType))
+                plain -> (T) mapper.readValue(plain, payloadType))
                 .orElse(null);
     }
 
@@ -68,9 +68,7 @@ public class JsonWebToken extends SystemComponent {
             return Objects.equals(signature, base64Encoder.encodeToString(signer.sign()));
         } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
             throw new UnreachableException(e);
-        } catch (SignatureException e) {
-            return false;
-        } catch (InvalidKeyException e) {
+        } catch (SignatureException | InvalidKeyException e) {
             return false;
         }
 

@@ -6,7 +6,7 @@
     <parent>
         <groupId>net.unit8.enkan</groupId>
         <artifactId>enkan-parent</artifactId>
-        <version>0.3.1</version>
+        <version>0.5.0</version>
     </parent>
 
     <artifactId>enkan-bouncr</artifactId>
@@ -16,7 +16,8 @@
     <url>http://github.com/enkan/enkan-bouncr</url>
 
     <properties>
-        <enkan.version>0.3.1</enkan.version>
+        <enkan.version>0.5.0</enkan.version>
+        <jackson.version>2.9.3</jackson.version>
     </properties>
 
     <dependencies>
@@ -28,22 +29,22 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.9.2</version>
+            <version>${jackson.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jsr310</artifactId>
-            <version>2.9.2</version>
+            <version>${jackson.version}</version>
         </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-jdk15on</artifactId>
-            <version>1.58</version>
+            <version>1.59</version>
         </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk15on</artifactId>
-            <version>1.58</version>
+            <version>1.59</version>
         </dependency>
 
         <dependency>
