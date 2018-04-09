@@ -47,6 +47,7 @@ public class JsonWebToken extends SystemComponent {
                 .orElse(null);
     }
 
+    @SuppressWarnings("unchecked")
     public <T> T decodePayload(String encoded, TypeReference<T> payloadType) {
         return some(encoded,
                 enc -> new String(base64Decoder.decode(enc)),

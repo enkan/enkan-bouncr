@@ -6,7 +6,7 @@
     <parent>
         <groupId>net.unit8.enkan</groupId>
         <artifactId>enkan-parent</artifactId>
-        <version>0.5.0</version>
+        <version>0.6.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>enkan-bouncr</artifactId>
@@ -16,7 +16,6 @@
     <url>http://github.com/enkan/enkan-bouncr</url>
 
     <properties>
-        <enkan.version>0.5.0</enkan.version>
         <jackson.version>2.9.3</jackson.version>
     </properties>
 
@@ -47,11 +46,6 @@
             <version>1.59</version>
         </dependency>
 
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <scope>provided</scope>
-        </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>

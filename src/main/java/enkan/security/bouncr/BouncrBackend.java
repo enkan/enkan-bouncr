@@ -9,6 +9,7 @@ import javax.inject.Inject;
 import java.security.Principal;
 import java.security.PrivateKey;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static enkan.util.ThreadingUtils.*;
 
@@ -25,15 +26,22 @@ public class BouncrBackend implements AuthBackend<HttpRequest, Map<String, Objec
                 .orElse(null);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public Principal authenticate(HttpRequest request, Map<String, Object> authenticationData) {
         if (authenticationData == null) return null;
 
         String account = (String) authenticationData.remove("sub");
-        List<String> permissions = (List<String>) Optional.ofNullable(authenticationData.remove("permissions"))
-                .orElse(Collections.emptyList());
-
-        return new UserPermissionPrincipal(account, authenticationData, new HashSet<>(permissions));
+        List permissions = Optional.ofNullable(authenticationData.remove("permissions"))
+                .filter(List.class::isInstance)
+                .map(List.class::cast)
+                .orElse(Collections.EMPTY_LIST);
+        return new UserPermissionPrincipal(account, authenticationData,
+                (Set<String>) permissions.stream()
+                        .filter(Objects::nonNull)
+                        .map(Objects::toString)
+                        .collect(Collectors.toSet())
+        );
     }
 
     public void setPrivateKey(PrivateKey privateKey) {

@@ -43,7 +43,7 @@ public class JsonWebTokenTest {
     }
 
     private String createMessageRS256(PrivateKey pkey) {
-        HashMap claim = new HashMap<String, Object>();
+        HashMap<String, Object> claim = new HashMap<>();
         claim.put("sub", "kawasima");
 
         JwtHeader header = new JwtHeader();

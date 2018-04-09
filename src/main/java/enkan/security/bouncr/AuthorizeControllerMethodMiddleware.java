@@ -4,7 +4,6 @@ import enkan.MiddlewareChain;
 import enkan.annotation.Middleware;
 import enkan.data.HttpRequest;
 import enkan.data.HttpResponse;
-import enkan.data.PrincipalAvailable;
 import enkan.data.Routable;
 import enkan.middleware.AbstractWebMiddleware;
 import enkan.security.UserPrincipal;
@@ -22,11 +21,14 @@ import static enkan.util.BeanBuilder.*;
  * @author kawasima
  */
 @Middleware(name = "authorizeControllerMethod", dependencies = "routing")
-public class AuthorizeControllerMethodMiddleware extends AbstractWebMiddleware {
+public class AuthorizeControllerMethodMiddleware<NRES> extends AbstractWebMiddleware<HttpRequest, NRES> {
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public HttpResponse handle(HttpRequest request, MiddlewareChain chain) {
+    public HttpResponse handle(HttpRequest request, MiddlewareChain<HttpRequest, NRES, ?, ?> chain) {
         Method m = ((Routable) request).getControllerMethod();
-        Optional<UserPrincipal> principal = Stream.of(((PrincipalAvailable) request).getPrincipal())
+        Optional<UserPrincipal> principal = Stream.of(request.getPrincipal())
                 .filter(UserPrincipal.class::isInstance)
                 .map(UserPrincipal.class::cast)
                 .findAny();
@@ -40,6 +42,6 @@ public class AuthorizeControllerMethodMiddleware extends AbstractWebMiddleware {
                         .build();
             }
         }
-        return HttpResponse.class.cast(chain.next(request));
+        return castToHttpResponse(chain.next(request));
     }
 }
