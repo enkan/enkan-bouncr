@@ -52,11 +52,30 @@ public class JsonWebTokenTest {
         return jwt.sign(claim, header, pkey);
     }
 
+    private String createMessageHS256(PrivateKey pkey) {
+        HashMap<String, Object> claim = new HashMap<>();
+        claim.put("sub", "kawasima");
+
+        JwtHeader header = new JwtHeader();
+        header.setAlg("HS256");
+
+        return jwt.sign(claim, header, pkey);
+    }
+
     @Test
     public void rs256() throws Exception {
         PrivateKey pkey = generatePrivateKey();
 
         String message = createMessageRS256(pkey);
+        Map<String,Object> claim = jwt.unsign(message, pkey, new TypeReference<Map<String, Object>>() {});
+        assertThat(claim).containsEntry("sub", "kawasima");
+    }
+
+    @Test
+    public void hs256() throws Exception {
+        PrivateKey pkey = generatePrivateKey();
+
+        String message = createMessageHS256(pkey);
         Map<String,Object> claim = jwt.unsign(message, pkey, new TypeReference<Map<String, Object>>() {});
         assertThat(claim).containsEntry("sub", "kawasima");
     }

@@ -6,17 +6,21 @@
     <parent>
         <groupId>net.unit8.enkan</groupId>
         <artifactId>enkan-parent</artifactId>
-        <version>0.6.0-SNAPSHOT</version>
+        <version>0.6.0</version>
     </parent>
 
     <artifactId>enkan-bouncr</artifactId>
     <packaging>jar</packaging>
+    <version>0.7.0-SNAPSHOT</version>
 
     <name>enkan-bouncr</name>
     <url>http://github.com/enkan/enkan-bouncr</url>
 
     <properties>
-        <jackson.version>2.9.3</jackson.version>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <maven.compiler.release>11</maven.compiler.release>
+        <jackson.version>2.9.7</jackson.version>
     </properties>
 
     <dependencies>
@@ -38,12 +42,12 @@
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-jdk15on</artifactId>
-            <version>1.59</version>
+            <version>1.60</version>
         </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk15on</artifactId>
-            <version>1.59</version>
+            <version>1.60</version>
         </dependency>
 
         <dependency>
@@ -53,13 +57,13 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
-            <version>5.0.0</version>
+            <version>5.3.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <version>3.8.0</version>
+            <version>3.11.1</version>
             <scope>test</scope>
         </dependency>
 
