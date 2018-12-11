@@ -39,12 +39,13 @@ public class BouncrBackend implements AuthBackend<HttpRequest, Map<String, Objec
     public Principal authenticate(HttpRequest request, Map<String, Object> authenticationData) {
         if (authenticationData == null) return null;
 
+        Long id = Long.valueOf((String) authenticationData.remove("uid"));
         String account = (String) authenticationData.remove("sub");
         List permissions = Optional.ofNullable(authenticationData.remove("permissions"))
                 .filter(List.class::isInstance)
                 .map(List.class::cast)
                 .orElse(Collections.EMPTY_LIST);
-        return new UserPermissionPrincipal(account, authenticationData,
+        return new UserPermissionPrincipal(id, account, authenticationData,
                 (Set<String>) permissions.stream()
                         .filter(Objects::nonNull)
                         .map(Objects::toString)
