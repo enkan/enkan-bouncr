@@ -39,7 +39,7 @@ public class BouncrBackend implements AuthBackend<HttpRequest, Map<String, Objec
     public Principal authenticate(HttpRequest request, Map<String, Object> authenticationData) {
         if (authenticationData == null) return null;
 
-        Long id = Long.valueOf((String) authenticationData.remove("uid"));
+        Long id = Long.valueOf(Objects.toString(authenticationData.remove("uid"), "0"));
         String account = (String) authenticationData.remove("sub");
         List permissions = Optional.ofNullable(authenticationData.remove("permissions"))
                 .filter(List.class::isInstance)
