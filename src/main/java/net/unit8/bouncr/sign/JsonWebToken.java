@@ -10,12 +10,6 @@ import enkan.component.ComponentLifecycle;
 import enkan.component.SystemComponent;
 import enkan.exception.MisconfigurationException;
 import enkan.exception.UnreachableException;
-import org.bouncycastle.crypto.macs.HMac;
-import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
-import org.bouncycastle.crypto.params.KeyParameter;
-import org.bouncycastle.crypto.util.DigestFactory;
-import org.bouncycastle.crypto.util.PrivateKeyFactory;
-import org.bouncycastle.jcajce.provider.util.SecretKeyUtil;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;

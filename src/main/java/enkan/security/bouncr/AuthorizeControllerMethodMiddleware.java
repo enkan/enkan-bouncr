@@ -16,7 +16,7 @@ import java.util.stream.Stream;
 import static enkan.util.BeanBuilder.*;
 
 /**
- * The middleware for annotation-based authorization.
+ * The logging for annotation-based authorization.
  *
  * @author kawasima
  */

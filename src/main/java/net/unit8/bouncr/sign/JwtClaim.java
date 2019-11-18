@@ -1,21 +1,65 @@
 package net.unit8.bouncr.sign;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.io.Serializable;
-import java.util.Objects;
 
+import java.io.Serializable;
+import java.time.LocalDateTime;
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class JwtClaim implements Serializable {
-    private String email;
-    private String picture;
-    private String sub;
+    // ID Token
+    /** Issuer */
     private String iss;
+    /** Subject */
+    private String sub;
+    /** Audience */
     private String aud;
+    /** Expires*/
+    private Long exp;
+    /** Issued at */
+    private Long iat;
+    /** Auth time */
+    @JsonProperty("auth_time")
+    private Long AuthTime;
+
+    private String nonce;
+    /** Authentication Context Class Reference */
+    private String aur;
+    /** Authentication Methods Reference */
+    private String amr;
+
+    /** Authorized party*/
+    private String azp;
+
+    // Claim
     private String name;
+    @JsonProperty("given_name")
+    private String givenName;
+    @JsonProperty("family_name")
+    private String familyName;
+    @JsonProperty("middle_name")
+    private String middleName;
+    private String nickname;
     @JsonProperty("preferred_username")
     private String preferredUsername;
-    private Long exp;
-    private Long iat;
-    private String nonce;
+    private String profile;
+    private String picture;
+    private String website;
+    private String email;
+    @JsonProperty("emailVerification")
+    private Boolean emailVerification;
+    private String gender;
+    private String birthdate;
+    private String zoneinfo;
+    private String locale;
+    @JsonProperty("phone_number")
+    private String phoneNumber;
+    @JsonProperty("phone_number_verified")
+    private String phoneNumberVerified;
+    private ClaimAddress address;
+    @JsonProperty("updated_at")
+    private LocalDateTime updatedAt;
 
     public String getEmail() {
         return email;
@@ -97,42 +141,155 @@ public class JwtClaim implements Serializable {
         this.nonce = nonce;
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        JwtClaim jwtClaim = (JwtClaim) o;
-        return Objects.equals(email, jwtClaim.email) &&
-                Objects.equals(picture, jwtClaim.picture) &&
-                Objects.equals(sub, jwtClaim.sub) &&
-                Objects.equals(iss, jwtClaim.iss) &&
-                Objects.equals(aud, jwtClaim.aud) &&
-                Objects.equals(name, jwtClaim.name) &&
-                Objects.equals(preferredUsername, jwtClaim.preferredUsername) &&
-                Objects.equals(exp, jwtClaim.exp) &&
-                Objects.equals(iat, jwtClaim.iat) &&
-                Objects.equals(nonce, jwtClaim.nonce);
+    public Long getAuthTime() {
+        return AuthTime;
     }
 
-    @Override
-    public int hashCode() {
-
-        return Objects.hash(email, picture, sub, iss, aud, name, preferredUsername, exp, iat, nonce);
+    public void setAuthTime(Long authTime) {
+        AuthTime = authTime;
     }
 
-    @Override
-    public String toString() {
-        return "JwtClaim{" +
-                "email='" + email + '\'' +
-                ", picture='" + picture + '\'' +
-                ", sub='" + sub + '\'' +
-                ", iss='" + iss + '\'' +
-                ", aud='" + aud + '\'' +
-                ", name='" + name + '\'' +
-                ", preferredUsername='" + preferredUsername + '\'' +
-                ", exp=" + exp +
-                ", iat=" + iat +
-                ", nonce='" + nonce + '\'' +
-                '}';
+    public String getAur() {
+        return aur;
+    }
+
+    public void setAur(String aur) {
+        this.aur = aur;
+    }
+
+    public String getAmr() {
+        return amr;
+    }
+
+    public void setAmr(String amr) {
+        this.amr = amr;
+    }
+
+    public String getAzp() {
+        return azp;
+    }
+
+    public void setAzp(String azp) {
+        this.azp = azp;
+    }
+
+    public String getGivenName() {
+        return givenName;
+    }
+
+    public void setGivenName(String givenName) {
+        this.givenName = givenName;
+    }
+
+    public String getFamilyName() {
+        return familyName;
+    }
+
+    public void setFamilyName(String familyName) {
+        this.familyName = familyName;
+    }
+
+    public String getMiddleName() {
+        return middleName;
+    }
+
+    public void setMiddleName(String middleName) {
+        this.middleName = middleName;
+    }
+
+    public String getNickname() {
+        return nickname;
+    }
+
+    public void setNickname(String nickname) {
+        this.nickname = nickname;
+    }
+
+    public String getProfile() {
+        return profile;
+    }
+
+    public void setProfile(String profile) {
+        this.profile = profile;
+    }
+
+    public String getWebsite() {
+        return website;
+    }
+
+    public void setWebsite(String website) {
+        this.website = website;
+    }
+
+    public Boolean getEmailVerification() {
+        return emailVerification;
+    }
+
+    public void setEmailVerification(Boolean emailVerification) {
+        this.emailVerification = emailVerification;
+    }
+
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+
+    public String getBirthdate() {
+        return birthdate;
+    }
+
+    public void setBirthdate(String birthdate) {
+        this.birthdate = birthdate;
+    }
+
+    public String getZoneinfo() {
+        return zoneinfo;
+    }
+
+    public void setZoneinfo(String zoneinfo) {
+        this.zoneinfo = zoneinfo;
+    }
+
+    public String getLocale() {
+        return locale;
+    }
+
+    public void setLocale(String locale) {
+        this.locale = locale;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    public String getPhoneNumberVerified() {
+        return phoneNumberVerified;
+    }
+
+    public void setPhoneNumberVerified(String phoneNumberVerified) {
+        this.phoneNumberVerified = phoneNumberVerified;
+    }
+
+    public ClaimAddress getAddress() {
+        return address;
+    }
+
+    public void setAddress(ClaimAddress address) {
+        this.address = address;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }
