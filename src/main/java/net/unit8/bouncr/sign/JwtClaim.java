@@ -1,5 +1,6 @@
 package net.unit8.bouncr.sign;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -7,6 +8,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class JwtClaim implements Serializable {
     // ID Token
     /** Issuer */
@@ -21,11 +23,11 @@ public class JwtClaim implements Serializable {
     private Long iat;
     /** Auth time */
     @JsonProperty("auth_time")
-    private Long AuthTime;
+    private Long authTime;
 
     private String nonce;
     /** Authentication Context Class Reference */
-    private String aur;
+    private String acr;
     /** Authentication Methods Reference */
     private String amr;
 
@@ -47,8 +49,8 @@ public class JwtClaim implements Serializable {
     private String picture;
     private String website;
     private String email;
-    @JsonProperty("emailVerification")
-    private Boolean emailVerification;
+    @JsonProperty("email_verified")
+    private Boolean emailVerified;
     private String gender;
     private String birthdate;
     private String zoneinfo;
@@ -56,7 +58,7 @@ public class JwtClaim implements Serializable {
     @JsonProperty("phone_number")
     private String phoneNumber;
     @JsonProperty("phone_number_verified")
-    private String phoneNumberVerified;
+    private Boolean phoneNumberVerified;
     private ClaimAddress address;
     @JsonProperty("updated_at")
     private LocalDateTime updatedAt;
@@ -142,19 +144,19 @@ public class JwtClaim implements Serializable {
     }
 
     public Long getAuthTime() {
-        return AuthTime;
+        return authTime;
     }
 
     public void setAuthTime(Long authTime) {
-        AuthTime = authTime;
+        this.authTime = authTime;
     }
 
-    public String getAur() {
-        return aur;
+    public String getAcr() {
+        return acr;
     }
 
-    public void setAur(String aur) {
-        this.aur = aur;
+    public void setAcr(String acr) {
+        this.acr = acr;
     }
 
     public String getAmr() {
@@ -221,12 +223,12 @@ public class JwtClaim implements Serializable {
         this.website = website;
     }
 
-    public Boolean getEmailVerification() {
-        return emailVerification;
+    public Boolean getEmailVerified() {
+        return emailVerified;
     }
 
-    public void setEmailVerification(Boolean emailVerification) {
-        this.emailVerification = emailVerification;
+    public void setEmailVerified(Boolean emailVerified) {
+        this.emailVerified = emailVerified;
     }
 
     public String getGender() {
@@ -269,11 +271,11 @@ public class JwtClaim implements Serializable {
         this.phoneNumber = phoneNumber;
     }
 
-    public String getPhoneNumberVerified() {
+    public Boolean getPhoneNumberVerified() {
         return phoneNumberVerified;
     }
 
-    public void setPhoneNumberVerified(String phoneNumberVerified) {
+    public void setPhoneNumberVerified(Boolean phoneNumberVerified) {
         this.phoneNumberVerified = phoneNumberVerified;
     }
 

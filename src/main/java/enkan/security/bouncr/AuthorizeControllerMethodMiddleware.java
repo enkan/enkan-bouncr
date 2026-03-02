@@ -8,7 +8,7 @@ import enkan.data.Routable;
 import enkan.middleware.AbstractWebMiddleware;
 import enkan.security.UserPrincipal;
 
-import javax.annotation.security.RolesAllowed;
+import jakarta.annotation.security.RolesAllowed;
 import java.lang.reflect.Method;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -16,7 +16,7 @@ import java.util.stream.Stream;
 import static enkan.util.BeanBuilder.*;
 
 /**
- * The logging for annotation-based authorization.
+ * Middleware for annotation-based authorization using {@link jakarta.annotation.security.RolesAllowed}.
  *
  * @author kawasima
  */
@@ -26,7 +26,7 @@ public class AuthorizeControllerMethodMiddleware<NRES> extends AbstractWebMiddle
      * {@inheritDoc}
      */
     @Override
-    public HttpResponse handle(HttpRequest request, MiddlewareChain<HttpRequest, NRES, ?, ?> chain) {
+    public <NNREQ, NNRES> HttpResponse handle(HttpRequest request, MiddlewareChain<HttpRequest, NRES, NNREQ, NNRES> chain) {
         Method m = ((Routable) request).getControllerMethod();
         Optional<UserPrincipal> principal = Stream.of(request.getPrincipal())
                 .filter(UserPrincipal.class::isInstance)

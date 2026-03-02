@@ -19,13 +19,14 @@ import java.lang.reflect.Type;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Objects;
 
 import static enkan.util.ThreadingUtils.some;
 
-public class JsonWebToken extends SystemComponent {
+public class JsonWebToken extends SystemComponent<JsonWebToken> {
     private ObjectMapper mapper;
     private Base64.Decoder base64Decoder;
     private Base64.Encoder base64Encoder;
@@ -51,7 +52,6 @@ public class JsonWebToken extends SystemComponent {
                 .orElse(null);
     }
 
-    @SuppressWarnings("unchecked")
     public <T> T decodePayload(String encoded, TypeReference<T> payloadType) {
         return some(encoded,
                 enc -> new String(base64Decoder.decode(enc)),
@@ -63,7 +63,7 @@ public class JsonWebToken extends SystemComponent {
         String signAlgorithm = ALGORITHMS.getString(alg);
         if (signAlgorithm == null) throw new MisconfigurationException("bouncr.NO_SUCH_JWT_ALGORITHM", alg);
         if (signAlgorithm.equals("none")) {
-            return true;
+            throw new MisconfigurationException("bouncr.ALG_NONE_NOT_ALLOWED");
         }
 
         try {
@@ -74,12 +74,12 @@ public class JsonWebToken extends SystemComponent {
                 mac.update(String.join(".", header, payload).getBytes());
                 return Objects.equals(signature, base64Encoder.encodeToString(mac.doFinal()));
             } else {
-                Signature signer = Signature.getInstance(signAlgorithm, "BC");
+                Signature verifier = Signature.getInstance(signAlgorithm, "BC");
                 KeyFactory kf = KeyFactory.getInstance("RSA");
-                PrivateKey privateKey = kf.generatePrivate(new PKCS8EncodedKeySpec(key));
-                signer.initSign(privateKey, prng);
-                signer.update(String.join(".", header, payload).getBytes());
-                return Objects.equals(signature, base64Encoder.encodeToString(signer.sign()));
+                PublicKey publicKey = kf.generatePublic(new X509EncodedKeySpec(key));
+                verifier.initVerify(publicKey);
+                verifier.update(String.join(".", header, payload).getBytes());
+                return verifier.verify(base64Decoder.decode(signature));
             }
         } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
             throw new UnreachableException(e);
@@ -111,11 +111,11 @@ public class JsonWebToken extends SystemComponent {
         });
     }
 
-    public <T> T unsign(String message, PrivateKey pkey, TypeReference<T> typeReference) {
+    public <T> T unsign(String message, PublicKey pkey, TypeReference<T> typeReference) {
         return unsign(message, pkey.getEncoded(), typeReference);
     }
 
-    public <T> T unsign(String message, PrivateKey pkey, Class<T> claimClass) {
+    public <T> T unsign(String message, PublicKey pkey, Class<T> claimClass) {
         return unsign(message, pkey, new TypeReference<T>() {
             @Override
             public Type getType() { return claimClass; }
@@ -148,9 +148,11 @@ public class JsonWebToken extends SystemComponent {
         } catch (NoSuchAlgorithmException e) {
             throw new UnreachableException(e);
         } catch (NoSuchProviderException e) {
-            throw new MisconfigurationException(""); //TODO
+            throw new MisconfigurationException("bouncr.NO_SUCH_CRYPTO_PROVIDER",
+                    "BouncyCastle provider is not registered. Add Security.addProvider(new BouncyCastleProvider()).");
         } catch (SignatureException | InvalidKeyException | InvalidKeySpecException e) {
-            throw new MisconfigurationException(""); //TODO
+            throw new MisconfigurationException("bouncr.INVALID_SIGNING_KEY",
+                    "The private key is invalid or incompatible with the signing algorithm.");
         }
     }
 
@@ -179,7 +181,7 @@ public class JsonWebToken extends SystemComponent {
     }
 
     @Override
-    protected ComponentLifecycle lifecycle() {
+    protected ComponentLifecycle<JsonWebToken> lifecycle() {
         return new ComponentLifecycle<JsonWebToken>() {
             @Override
             public void start(JsonWebToken component) {
