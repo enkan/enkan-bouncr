@@ -5,7 +5,7 @@ import enkan.annotation.Middleware;
 import enkan.data.HttpRequest;
 import enkan.data.HttpResponse;
 import enkan.data.Routable;
-import enkan.middleware.AbstractWebMiddleware;
+import enkan.middleware.WebMiddleware;
 import enkan.security.UserPrincipal;
 
 import jakarta.annotation.security.RolesAllowed;
@@ -21,12 +21,12 @@ import static enkan.util.BeanBuilder.*;
  * @author kawasima
  */
 @Middleware(name = "authorizeControllerMethod", dependencies = "routing")
-public class AuthorizeControllerMethodMiddleware<NRES> extends AbstractWebMiddleware<HttpRequest, NRES> {
+public class AuthorizeControllerMethodMiddleware implements WebMiddleware {
     /**
      * {@inheritDoc}
      */
     @Override
-    public <NNREQ, NNRES> HttpResponse handle(HttpRequest request, MiddlewareChain<HttpRequest, NRES, NNREQ, NNRES> chain) {
+    public <NNREQ, NNRES> HttpResponse handle(HttpRequest request, MiddlewareChain<HttpRequest, HttpResponse, NNREQ, NNRES> chain) {
         Method m = ((Routable) request).getControllerMethod();
         Optional<UserPrincipal> principal = Stream.of(request.getPrincipal())
                 .filter(UserPrincipal.class::isInstance)
