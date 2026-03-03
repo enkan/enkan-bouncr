@@ -19,11 +19,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class AuthorizeControllerMethodMiddlewareTest {
 
-    private AuthorizeControllerMethodMiddleware<HttpResponse> middleware;
+    private AuthorizeControllerMethodMiddleware middleware;
 
     @BeforeEach
     public void setup() {
-        middleware = new AuthorizeControllerMethodMiddleware<>();
+        middleware = new AuthorizeControllerMethodMiddleware();
     }
 
     /** Routable + HttpRequest test double */
