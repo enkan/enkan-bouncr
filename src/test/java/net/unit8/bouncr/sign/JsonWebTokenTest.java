@@ -239,6 +239,13 @@ public class JsonWebTokenTest {
     // --- guard: component not started ---
 
     @Test
+    public void decodePayloadThrowsWhenNotStarted() {
+        JsonWebToken unstartedJwt = new JsonWebToken();
+        assertThatThrownBy(() -> unstartedJwt.decodePayload("eyJ0ZXN0IjoxfQ", new TypeReference<Map<String, Object>>() {}))
+                .isInstanceOf(MisconfigurationException.class);
+    }
+
+    @Test
     public void unsignThrowsWhenNotStarted() {
         JsonWebToken unstartedJwt = new JsonWebToken();
         byte[] key = "key".getBytes(StandardCharsets.UTF_8);
