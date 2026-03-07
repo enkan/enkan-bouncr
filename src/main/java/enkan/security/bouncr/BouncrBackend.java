@@ -1,6 +1,6 @@
 package enkan.security.bouncr;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import enkan.data.HttpRequest;
 import enkan.security.AuthBackend;
 import net.unit8.bouncr.sign.JsonWebToken;
@@ -23,9 +23,14 @@ public class BouncrBackend implements AuthBackend<HttpRequest, Map<String, Objec
 
     @Override
     public Map<String, Object> parse(HttpRequest request) {
+        if (jwt == null) {
+            throw new enkan.exception.MisconfigurationException("bouncr.JWT_COMPONENT_NOT_INJECTED");
+        }
         if (publicKey != null && key != null) {
-            throw new enkan.exception.MisconfigurationException("bouncr.AMBIGUOUS_KEY_CONFIG",
-                    "Configure either publicKey (RSA) or key (HMAC), not both.");
+            throw new enkan.exception.MisconfigurationException("bouncr.AMBIGUOUS_KEY_CONFIG");
+        }
+        if (publicKey == null && key == null) {
+            throw new enkan.exception.MisconfigurationException("bouncr.NO_KEY_CONFIGURED");
         }
         return some(request.getHeaders().get("x-bouncr-credential"),
                 cred -> {

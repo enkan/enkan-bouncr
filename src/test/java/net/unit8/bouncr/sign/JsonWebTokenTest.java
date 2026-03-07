@@ -1,6 +1,6 @@
 package net.unit8.bouncr.sign;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import enkan.exception.MisconfigurationException;
 import enkan.system.EnkanSystem;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -13,7 +13,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.util.Base64;
-import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -133,8 +132,6 @@ public class JsonWebTokenTest {
     }
 
     // --- unsign with Class<T> overload ---
-
-    @SuppressWarnings("unchecked")
     @Test
     public void unsignWithClassOverload() throws Exception {
         KeyPair keyPair = generateKeyPair();
@@ -237,5 +234,46 @@ public class JsonWebTokenTest {
     @Test
     public void decodePayloadReturnsNullForNull() {
         assertThat(jwt.decodePayload(null, new TypeReference<Map<String, Object>>() {})).isNull();
+    }
+
+    // --- guard: component not started ---
+
+    @Test
+    public void unsignThrowsWhenNotStarted() {
+        JsonWebToken unstartedJwt = new JsonWebToken();
+        byte[] key = "key".getBytes(StandardCharsets.UTF_8);
+        assertThatThrownBy(() -> unstartedJwt.unsign("a.b.c", key, new TypeReference<Map<String, Object>>() {}))
+                .isInstanceOf(MisconfigurationException.class);
+    }
+
+    @Test
+    public void signThrowsWhenNotStarted() {
+        JsonWebToken unstartedJwt = new JsonWebToken();
+        byte[] key = "key".getBytes(StandardCharsets.UTF_8);
+        JwtHeader header = new JwtHeader();
+        header.setAlg("HS256");
+        assertThatThrownBy(() -> unstartedJwt.sign(Map.of("sub", "x"), header, key))
+                .isInstanceOf(MisconfigurationException.class);
+    }
+
+    // --- guard: null signing key ---
+
+    @Test
+    public void signThrowsWhenKeyIsNull() {
+        JwtHeader header = new JwtHeader();
+        header.setAlg("HS256");
+        assertThatThrownBy(() -> jwt.sign("payload", header, (byte[]) null))
+                .isInstanceOf(MisconfigurationException.class);
+    }
+
+    // --- guard: alg:none in sign() ---
+
+    @Test
+    public void signThrowsWhenAlgIsNone() {
+        byte[] key = "key".getBytes(StandardCharsets.UTF_8);
+        JwtHeader header = new JwtHeader();
+        header.setAlg("none");
+        assertThatThrownBy(() -> jwt.sign(Map.of("sub", "x"), header, key))
+                .isInstanceOf(MisconfigurationException.class);
     }
 }
