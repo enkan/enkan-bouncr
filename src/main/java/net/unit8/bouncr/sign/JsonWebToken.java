@@ -170,6 +170,9 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
     }
 
     public String sign(Map<String, Object> claims, JwtHeader header, PrivateKey key) {
+        if (key == null) {
+            throw new MisconfigurationException("bouncr.SIGNING_KEY_IS_NULL");
+        }
         return sign(claims, header, key.getEncoded());
     }
 
@@ -182,6 +185,9 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
     }
 
     public String sign(JwtClaim claims, JwtHeader header, PrivateKey key) {
+        if (key == null) {
+            throw new MisconfigurationException("bouncr.SIGNING_KEY_IS_NULL");
+        }
         return sign(claims, header, key.getEncoded());
     }
 
