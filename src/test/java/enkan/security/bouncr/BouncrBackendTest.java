@@ -146,6 +146,26 @@ public class BouncrBackendTest {
                 .isInstanceOf(MisconfigurationException.class);
     }
 
+    // --- guard: no key configured ---
+
+    @Test
+    public void parseThrowsWhenNoKeyConfigured() {
+        BouncrBackend backend = new BouncrBackend();
+        backend.setJwt(jwt);
+        assertThatThrownBy(() -> backend.parse(requestWithoutCredential()))
+                .isInstanceOf(MisconfigurationException.class);
+    }
+
+    // --- guard: jwt not injected ---
+
+    @Test
+    public void parseThrowsWhenJwtNotInjected() {
+        BouncrBackend backend = new BouncrBackend();
+        backend.setKey("secret".getBytes(StandardCharsets.UTF_8));
+        assertThatThrownBy(() -> backend.parse(requestWithoutCredential()))
+                .isInstanceOf(MisconfigurationException.class);
+    }
+
     // --- authenticate() ---
 
     @Test
