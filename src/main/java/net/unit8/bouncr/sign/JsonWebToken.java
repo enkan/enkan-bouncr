@@ -1,10 +1,9 @@
 package net.unit8.bouncr.sign;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import enkan.collection.OptionMap;
 import enkan.component.ComponentLifecycle;
 import enkan.component.SystemComponent;
@@ -13,8 +12,6 @@ import enkan.exception.UnreachableException;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.lang.reflect.Type;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
@@ -44,6 +41,12 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
             "PS512", "SHA512withRSAandMGF1",
             "none",  "none"
             );
+
+    private void requireStarted() {
+        if (mapper == null) {
+            throw new MisconfigurationException("bouncr.JWT_NOT_STARTED");
+        }
+    }
 
     private String encodeHeader(JwtHeader header) {
         return some(header,
@@ -90,17 +93,14 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
     }
 
     public <T> T unsign(String message, byte[] key, TypeReference<T> typeReference) {
+        requireStarted();
         String[] tokens = message.split("\\.", 3);
         if (tokens.length != 3) return null;
-        try {
-            JwtHeader header = mapper.readValue(base64Decoder.decode(tokens[0]), JwtHeader.class);
-            if (verifySignature(header.getAlg(), tokens[2], key, tokens[0], tokens[1])) {
-                return decodePayload(/*Payload*/tokens[1], typeReference);
-            } else {
-                return null;
-            }
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+        JwtHeader header = mapper.readValue(base64Decoder.decode(tokens[0]), JwtHeader.class);
+        if (verifySignature(header.getAlg(), tokens[2], key, tokens[0], tokens[1])) {
+            return decodePayload(/*Payload*/tokens[1], typeReference);
+        } else {
+            return null;
         }
     }
 
@@ -123,26 +123,31 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
     }
 
     public String sign(String payload, JwtHeader header, byte[] key) {
+        requireStarted();
+        if (key == null) {
+            throw new MisconfigurationException("bouncr.SIGNING_KEY_IS_NULL");
+        }
         String encodedHeader = encodeHeader(header);
         try {
             String signAlgorithm = ALGORITHMS.getString(header.getAlg());
             if (signAlgorithm == null) throw new MisconfigurationException("bouncr.NO_SUCH_JWT_ALGORITHM", header.getAlg());
-            String encodedSignature = "";
-            if (!signAlgorithm.equals("none")) {
-                if (signAlgorithm.startsWith("Hmac")) {
-                    SecretKeySpec keySpec = new SecretKeySpec(key, signAlgorithm);
-                    Mac mac = Mac.getInstance(signAlgorithm);
-                    mac.init(keySpec);
-                    mac.update(String.join(".", encodedHeader, payload).getBytes());
-                    encodedSignature = base64Encoder.encodeToString(mac.doFinal());
-                } else {
-                    Signature signature = Signature.getInstance(signAlgorithm, "BC");
-                    KeyFactory kf = KeyFactory.getInstance("RSA");
-                    PrivateKey privateKey = kf.generatePrivate(new PKCS8EncodedKeySpec(key));
-                    signature.initSign(privateKey, prng);
-                    signature.update(String.join(".", encodedHeader, payload).getBytes());
-                    encodedSignature = base64Encoder.encodeToString(signature.sign());
-                }
+            if (signAlgorithm.equals("none")) {
+                throw new MisconfigurationException("bouncr.ALG_NONE_NOT_ALLOWED");
+            }
+            String encodedSignature;
+            if (signAlgorithm.startsWith("Hmac")) {
+                SecretKeySpec keySpec = new SecretKeySpec(key, signAlgorithm);
+                Mac mac = Mac.getInstance(signAlgorithm);
+                mac.init(keySpec);
+                mac.update(String.join(".", encodedHeader, payload).getBytes());
+                encodedSignature = base64Encoder.encodeToString(mac.doFinal());
+            } else {
+                Signature signature = Signature.getInstance(signAlgorithm, "BC");
+                KeyFactory kf = KeyFactory.getInstance("RSA");
+                PrivateKey privateKey = kf.generatePrivate(new PKCS8EncodedKeySpec(key));
+                signature.initSign(privateKey, prng);
+                signature.update(String.join(".", encodedHeader, payload).getBytes());
+                encodedSignature = base64Encoder.encodeToString(signature.sign());
             }
             return String.join(".", encodedHeader, payload, encodedSignature);
         } catch (NoSuchAlgorithmException e) {
@@ -157,11 +162,11 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
     }
 
     public String sign(Map<String, Object> claims, JwtHeader header, byte[] key) {
+        requireStarted();
         String encodedPayload = some(claims,
                 p -> mapper.writeValueAsBytes(p),
                 s -> base64Encoder.encodeToString(s)).orElse(null);
         return sign(encodedPayload, header, key);
-
     }
 
     public String sign(Map<String, Object> claims, JwtHeader header, PrivateKey key) {
@@ -169,11 +174,11 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
     }
 
     public String sign(JwtClaim claims, JwtHeader header, byte[] key) {
+        requireStarted();
         String encodedPayload = some(claims,
                 p -> mapper.writeValueAsBytes(p),
                 s -> base64Encoder.encodeToString(s)).orElse(null);
         return sign(encodedPayload, header, key);
-
     }
 
     public String sign(JwtClaim claims, JwtHeader header, PrivateKey key) {
@@ -185,12 +190,11 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
         return new ComponentLifecycle<JsonWebToken>() {
             @Override
             public void start(JsonWebToken component) {
-                component.mapper = new ObjectMapper();
-                component.mapper.registerModule(new JavaTimeModule());
-                component.mapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
-                component.mapper.configure(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS, true);
-                component.mapper.configure(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES, false);
-                component.mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+                component.mapper = JsonMapper.builder()
+                        .enable(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS)
+                        .disable(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES)
+                        .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                        .build();
 
                 component.base64Decoder = Base64.getUrlDecoder();
                 component.base64Encoder = Base64.getUrlEncoder().withoutPadding();
