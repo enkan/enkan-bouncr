@@ -56,6 +56,7 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
     }
 
     public <T> T decodePayload(String encoded, TypeReference<T> payloadType) {
+        requireStarted();
         return some(encoded,
                 enc -> new String(base64Decoder.decode(enc)),
                 plain -> (T) mapper.readValue(plain, payloadType))
