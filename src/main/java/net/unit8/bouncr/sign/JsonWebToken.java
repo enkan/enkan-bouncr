@@ -22,7 +22,6 @@ import java.security.spec.X509EncodedKeySpec;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Map;
-import java.util.Objects;
 
 import static enkan.util.ThreadingUtils.some;
 
@@ -115,6 +114,9 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
         int componentLen = p1363.length / 2;
         byte[] r = java.util.Arrays.copyOfRange(p1363, 0, componentLen);
         byte[] s = java.util.Arrays.copyOfRange(p1363, componentLen, p1363.length);
+        // Strip leading 0x00 bytes for minimal DER encoding, leaving at least one byte
+        r = stripLeadingZeros(r);
+        s = stripLeadingZeros(s);
         // Prepend 0x00 if high bit is set to keep the integer positive in DER
         byte[] rDer = r[0] < 0 ? prependZero(r) : r;
         byte[] sDer = s[0] < 0 ? prependZero(s) : s;
@@ -142,6 +144,12 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
         byte[] r = new byte[b.length + 1];
         System.arraycopy(b, 0, r, 1, b.length);
         return r;
+    }
+
+    private byte[] stripLeadingZeros(byte[] b) {
+        int i = 0;
+        while (i < b.length - 1 && b[i] == 0) i++;
+        return i == 0 ? b : java.util.Arrays.copyOfRange(b, i, b.length);
     }
 
     /**
@@ -189,10 +197,17 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
         try {
             if (signAlgorithm.startsWith("Hmac")) {
                 SecretKeySpec keySpec = new SecretKeySpec(key, signAlgorithm);
-                Mac mac = Mac.getInstance(signAlgorithm, "BC");
+                Mac mac = Mac.getInstance(signAlgorithm);
                 mac.init(keySpec);
                 mac.update(String.join(".", header, payload).getBytes(StandardCharsets.US_ASCII));
-                return Objects.equals(signature, base64Encoder.encodeToString(mac.doFinal()));
+                byte[] expected = mac.doFinal();
+                byte[] provided;
+                try {
+                    provided = base64Decoder.decode(signature);
+                } catch (IllegalArgumentException e) {
+                    return false;
+                }
+                return MessageDigest.isEqual(expected, provided);
             } else {
                 boolean isEcdsa = signAlgorithm.contains("ECDSA");
                 Signature verifier = Signature.getInstance(signAlgorithm, "BC");
