@@ -69,6 +69,83 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
     }
 
     /**
+     * Converts a DER-encoded ECDSA signature (SEQUENCE { INTEGER r, INTEGER s }) to the
+     * raw R||S concatenation format required by RFC 7518 §3.4 (JWS ECDSA).
+     * Each component is zero-padded to the expected length (keyBits/8 bytes, rounded up).
+     */
+    private byte[] derToP1363(byte[] der, int keyBits) {
+        int componentLen = (keyBits + 7) / 8;
+        // Parse DER: 0x30 <len> 0x02 <r-len> <r> 0x02 <s-len> <s>
+        // Length may be long-form: 0x81 <1-byte-len> for lengths >= 128
+        int pos = 1; // skip SEQUENCE tag (0x30)
+        int seqLenByte = der[pos++] & 0xff;
+        if ((seqLenByte & 0x80) != 0) {
+            pos += seqLenByte & 0x7f; // skip multi-byte length
+        }
+        pos++; // skip INTEGER tag for r
+        int rLen = der[pos++] & 0xff;
+        byte[] r = java.util.Arrays.copyOfRange(der, pos, pos + rLen);
+        pos += rLen;
+        pos++; // skip INTEGER tag for s
+        int sLen = der[pos++] & 0xff;
+        byte[] s = java.util.Arrays.copyOfRange(der, pos, pos + sLen);
+
+        byte[] result = new byte[componentLen * 2];
+        // Copy r right-aligned, stripping any leading 0x00 padding byte
+        int rStart = r.length > componentLen ? r.length - componentLen : 0;
+        int rDest = componentLen - (r.length - rStart);
+        System.arraycopy(r, rStart, result, rDest, r.length - rStart);
+        // Copy s right-aligned
+        int sStart = s.length > componentLen ? s.length - componentLen : 0;
+        int sDest = componentLen * 2 - (s.length - sStart);
+        System.arraycopy(s, sStart, result, sDest, s.length - sStart);
+        return result;
+    }
+
+    /**
+     * Converts a raw R||S ECDSA signature (RFC 7518 §3.4) to DER encoding for BouncyCastle verification.
+     * Handles DER long-form length encoding for sequences longer than 127 bytes (e.g. ES512/P-521).
+     */
+    private byte[] p1363ToDer(byte[] p1363) {
+        int componentLen = p1363.length / 2;
+        byte[] r = java.util.Arrays.copyOfRange(p1363, 0, componentLen);
+        byte[] s = java.util.Arrays.copyOfRange(p1363, componentLen, p1363.length);
+        // Prepend 0x00 if high bit is set to keep the integer positive in DER
+        byte[] rDer = r[0] < 0 ? prependZero(r) : r;
+        byte[] sDer = s[0] < 0 ? prependZero(s) : s;
+        int contentLen = 2 + rDer.length + 2 + sDer.length;
+        // Use long-form length encoding when contentLen > 127 (required for ES512/P-521)
+        byte[] lenBytes = contentLen > 127
+                ? new byte[]{(byte) 0x81, (byte) contentLen}
+                : new byte[]{(byte) contentLen};
+        byte[] der = new byte[1 + lenBytes.length + contentLen];
+        int i = 0;
+        der[i++] = 0x30;
+        System.arraycopy(lenBytes, 0, der, i, lenBytes.length);
+        i += lenBytes.length;
+        der[i++] = 0x02;
+        der[i++] = (byte) rDer.length;
+        System.arraycopy(rDer, 0, der, i, rDer.length);
+        i += rDer.length;
+        der[i++] = 0x02;
+        der[i++] = (byte) sDer.length;
+        System.arraycopy(sDer, 0, der, i, sDer.length);
+        return der;
+    }
+
+    private byte[] prependZero(byte[] b) {
+        byte[] r = new byte[b.length + 1];
+        System.arraycopy(b, 0, r, 1, b.length);
+        return r;
+    }
+
+    private byte[] stripLeadingZeros(byte[] b) {
+        int start = 0;
+        while (start < b.length - 1 && b[start] == 0) start++;
+        return start == 0 ? b : java.util.Arrays.copyOfRange(b, start, b.length);
+    }
+
+    /**
      * Validates exp and nbf claims per RFC 7519 §4.1.4 and §4.1.5.
      * Returns false if the token is expired, not yet valid, or has malformed time claims.
      */
@@ -118,16 +195,23 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
                 mac.update(String.join(".", header, payload).getBytes(StandardCharsets.US_ASCII));
                 return Objects.equals(signature, base64Encoder.encodeToString(mac.doFinal()));
             } else {
+                boolean isEcdsa = signAlgorithm.contains("ECDSA");
                 Signature verifier = Signature.getInstance(signAlgorithm, "BC");
-                String keyAlg = signAlgorithm.contains("ECDSA") ? "EC" : "RSA";
+                String keyAlg = isEcdsa ? "EC" : "RSA";
                 KeyFactory kf = KeyFactory.getInstance(keyAlg, "BC");
                 PublicKey publicKey = kf.generatePublic(new X509EncodedKeySpec(key));
                 verifier.initVerify(publicKey);
                 verifier.update(String.join(".", header, payload).getBytes(StandardCharsets.US_ASCII));
-                return verifier.verify(base64Decoder.decode(signature));
+                // Convert JWS raw R||S to DER for BouncyCastle verification (RFC 7518 §3.4)
+                byte[] sigBytes = base64Decoder.decode(signature);
+                byte[] derSig = isEcdsa ? p1363ToDer(sigBytes) : sigBytes;
+                return verifier.verify(derSig);
             }
-        } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
+        } catch (NoSuchAlgorithmException e) {
             throw new UnreachableException(e);
+        } catch (NoSuchProviderException e) {
+            throw new MisconfigurationException("bouncr.NO_SUCH_CRYPTO_PROVIDER",
+                    "BouncyCastle provider is not registered. Add Security.addProvider(new BouncyCastleProvider()).");
         } catch (SignatureException | InvalidKeyException | InvalidKeySpecException e) {
             return false;
         }
@@ -192,13 +276,20 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
                 mac.update(String.join(".", encodedHeader, payload).getBytes(StandardCharsets.US_ASCII));
                 encodedSignature = base64Encoder.encodeToString(mac.doFinal());
             } else {
+                boolean isEcdsa = signAlgorithm.contains("ECDSA");
                 Signature signature = Signature.getInstance(signAlgorithm, "BC");
-                String keyAlg = signAlgorithm.contains("ECDSA") ? "EC" : "RSA";
+                String keyAlg = isEcdsa ? "EC" : "RSA";
                 KeyFactory kf = KeyFactory.getInstance(keyAlg, "BC");
                 PrivateKey privateKey = kf.generatePrivate(new PKCS8EncodedKeySpec(key));
                 signature.initSign(privateKey, prng);
                 signature.update(String.join(".", encodedHeader, payload).getBytes(StandardCharsets.US_ASCII));
-                encodedSignature = base64Encoder.encodeToString(signature.sign());
+                byte[] rawSig = signature.sign();
+                if (isEcdsa) {
+                    // Convert DER to raw R||S concatenation as required by RFC 7518 §3.4
+                    int keyBits = header.alg().equals("ES256") ? 256 : header.alg().equals("ES384") ? 384 : 521;
+                    rawSig = derToP1363(rawSig, keyBits);
+                }
+                encodedSignature = base64Encoder.encodeToString(rawSig);
             }
             return String.join(".", encodedHeader, payload, encodedSignature);
         } catch (NoSuchAlgorithmException e) {

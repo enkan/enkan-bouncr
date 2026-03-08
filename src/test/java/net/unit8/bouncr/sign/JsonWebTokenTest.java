@@ -12,6 +12,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.nio.charset.StandardCharsets;
 import java.security.*;
+import java.security.spec.ECGenParameterSpec;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Map;
@@ -94,12 +95,22 @@ public class JsonWebTokenTest {
     @ParameterizedTest
     @ValueSource(strings = {"ES256", "ES384", "ES512"})
     public void ecdsaRoundtrip(String alg) throws Exception {
-        KeyPairGenerator gen = KeyPairGenerator.getInstance("EC");
-        gen.initialize(alg.equals("ES256") ? 256 : alg.equals("ES384") ? 384 : 521);
+        // Use explicit NIST named curves per RFC 7518 §3.4 to avoid provider-dependent curve selection
+        String curveName = alg.equals("ES256") ? "secp256r1" : alg.equals("ES384") ? "secp384r1" : "secp521r1";
+        KeyPairGenerator gen = KeyPairGenerator.getInstance("EC", "BC");
+        gen.initialize(new ECGenParameterSpec(curveName));
         KeyPair keyPair = gen.generateKeyPair();
         Map<String, Object> claims = Map.of("sub", "kawasima");
 
         String token = sign(claims, alg, keyPair.getPrivate());
+
+        // Verify JWS ECDSA signature encoding: raw R||S concatenation per RFC 7515/7518
+        String[] parts = token.split("\\.");
+        assertThat(parts).hasSize(3);
+        byte[] sigBytes = Base64.getUrlDecoder().decode(parts[2]);
+        int expectedSigLen = alg.equals("ES256") ? 64 : alg.equals("ES384") ? 96 : 132;
+        assertThat(sigBytes).hasSize(expectedSigLen);
+
         Map<String, Object> result = jwt.unsign(token, keyPair.getPublic(), new TypeReference<Map<String, Object>>() {});
         assertThat(result).containsEntry("sub", "kawasima");
     }
