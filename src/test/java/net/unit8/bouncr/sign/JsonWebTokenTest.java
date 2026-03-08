@@ -12,6 +12,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.nio.charset.StandardCharsets;
 import java.security.*;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.Map;
 
@@ -191,6 +192,36 @@ public class JsonWebTokenTest {
         byte[] key = "key".getBytes(StandardCharsets.UTF_8);
         assertThatThrownBy(() -> jwt.unsign(fakeToken, key, new TypeReference<Map<String, Object>>() {}))
                 .isInstanceOf(MisconfigurationException.class);
+    }
+
+    // --- time claim validation (RFC 7519 §4.1.4, §4.1.5) ---
+
+    @Test
+    public void expiredTokenReturnsNull() {
+        byte[] key = "secret".getBytes(StandardCharsets.UTF_8);
+        long pastEpoch = Instant.now().getEpochSecond() - 3600;
+        Map<String, Object> claims = Map.of("sub", "user", "exp", pastEpoch);
+        String token = sign(claims, "HS256", key);
+        assertThat(jwt.unsign(token, key, new TypeReference<Map<String, Object>>() {})).isNull();
+    }
+
+    @Test
+    public void notYetValidTokenReturnsNull() {
+        byte[] key = "secret".getBytes(StandardCharsets.UTF_8);
+        long futureEpoch = Instant.now().getEpochSecond() + 3600;
+        Map<String, Object> claims = Map.of("sub", "user", "nbf", futureEpoch);
+        String token = sign(claims, "HS256", key);
+        assertThat(jwt.unsign(token, key, new TypeReference<Map<String, Object>>() {})).isNull();
+    }
+
+    @Test
+    public void validExpTokenIsAccepted() {
+        byte[] key = "secret".getBytes(StandardCharsets.UTF_8);
+        long futureEpoch = Instant.now().getEpochSecond() + 3600;
+        Map<String, Object> claims = Map.of("sub", "user", "exp", futureEpoch);
+        String token = sign(claims, "HS256", key);
+        assertThat(jwt.unsign(token, key, new TypeReference<Map<String, Object>>() {}))
+                .containsEntry("sub", "user");
     }
 
     // --- malformed token edge cases ---
