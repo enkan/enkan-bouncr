@@ -316,13 +316,13 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
                 if (isEcdsa) {
                     // Derive key length from the actual EC key to avoid alg/key mismatch
                     int keyBits = ((ECKey) privateKey).getParams().getOrder().bitLength();
-                    // Validate that the key curve matches the declared JWA algorithm
+                    // Validate that the EC key size (bit length) matches the declared JWA algorithm
                     int expectedKeyBits = header.alg().equals("ES256") ? 256
                             : header.alg().equals("ES384") ? 384
                             : header.alg().equals("ES512") ? 521 : -1;
                     if (expectedKeyBits > 0 && keyBits != expectedKeyBits) {
                         throw new MisconfigurationException("bouncr.ECDSA_KEY_ALG_MISMATCH",
-                                "EC key curve (" + keyBits + " bits) does not match algorithm " + header.alg());
+                                "EC key size (" + keyBits + " bits) does not match algorithm " + header.alg());
                     }
                     rawSig = derToP1363(rawSig, keyBits);
                 }
