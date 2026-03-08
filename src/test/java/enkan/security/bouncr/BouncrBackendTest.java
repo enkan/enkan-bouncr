@@ -239,6 +239,33 @@ public class BouncrBackendTest {
         assertThat(principal.getProfiles()).doesNotContainKeys("uid", "sub", "permissions");
     }
 
+    // --- alg/key family mismatch ---
+
+    @Test
+    public void parseThrowsWhenHmacTokenSentToAsymmetricBackend() throws Exception {
+        KeyPair keyPair = generateKeyPair();
+        byte[] hmacKey = "hmac-secret".getBytes(StandardCharsets.UTF_8);
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("sub", "kawasima");
+        String hmacToken = signHmac(claims, hmacKey);
+
+        BouncrBackend backend = backendWithPublicKey(keyPair.getPublic());
+        assertThatThrownBy(() -> backend.parse(requestWithCredential(hmacToken)))
+                .isInstanceOf(MisconfigurationException.class);
+    }
+
+    @Test
+    public void parseThrowsWhenAsymmetricTokenSentToHmacBackend() throws Exception {
+        KeyPair keyPair = generateKeyPair();
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("sub", "kawasima");
+        String rsaToken = signRsa(claims, keyPair.getPrivate());
+
+        BouncrBackend backend = backendWithKey("hmac-secret".getBytes(StandardCharsets.UTF_8));
+        assertThatThrownBy(() -> backend.parse(requestWithCredential(rsaToken)))
+                .isInstanceOf(MisconfigurationException.class);
+    }
+
     // --- full flow ---
 
     @Test

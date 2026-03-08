@@ -3,6 +3,7 @@ package net.unit8.bouncr.sign;
 import tools.jackson.core.type.TypeReference;
 import enkan.exception.MisconfigurationException;
 import enkan.system.EnkanSystem;
+import java.util.HashMap;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -360,5 +361,45 @@ public class JsonWebTokenTest {
         byte[] key = "key".getBytes(StandardCharsets.UTF_8);
         assertThatThrownBy(() -> jwt.sign(Map.of("sub", "x"), new JwtHeader(null, "none", null), key))
                 .isInstanceOf(MisconfigurationException.class);
+    }
+
+    // --- security hardening: derToP1363 bounds checking ---
+
+    @Test
+    public void derToP1363ReturnsNullForTruncatedInput() throws Exception {
+        // Build a valid ES256 token then replace its signature with a truncated DER blob
+        KeyPairGenerator gen = KeyPairGenerator.getInstance("EC", "BC");
+        gen.initialize(new ECGenParameterSpec("secp256r1"));
+        KeyPair kp = gen.generateKeyPair();
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("sub", "test");
+        String token = jwt.sign(claims, new JwtHeader(null, "ES256", null), kp.getPrivate());
+
+        // Replace signature part with truncated/garbage Base64
+        String[] parts = token.split("\\.");
+        String truncated = parts[0] + "." + parts[1] + "."
+                + Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[]{0x30, 0x05, 0x02});
+        assertThat(jwt.unsign(truncated, kp.getPublic(), new TypeReference<Map<String, Object>>() {}))
+                .isNull();
+    }
+
+    // --- security hardening: malformed JWT header ---
+
+    @Test
+    public void unsignReturnsNullForMalformedHeader() {
+        byte[] key = "secret".getBytes(StandardCharsets.UTF_8);
+        // Not valid Base64url
+        String badToken = "!!!.payload.sig";
+        assertThat(jwt.unsign(badToken, key, new TypeReference<Map<String, Object>>() {}))
+                .isNull();
+    }
+
+    @Test
+    public void unsignReturnsNullForNonJsonHeader() {
+        byte[] key = "secret".getBytes(StandardCharsets.UTF_8);
+        String notJson = Base64.getUrlEncoder().withoutPadding().encodeToString("not-json".getBytes(StandardCharsets.UTF_8));
+        String token = notJson + ".payload.sig";
+        assertThat(jwt.unsign(token, key, new TypeReference<Map<String, Object>>() {}))
+                .isNull();
     }
 }

@@ -77,17 +77,25 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
         int componentLen = (keyBits + 7) / 8;
         // Parse DER: 0x30 <len> 0x02 <r-len> <r> 0x02 <s-len> <s>
         // Length may be long-form: 0x81 <1-byte-len> for lengths >= 128
+        if (der == null || der.length < 8) return null;
         int pos = 1; // skip SEQUENCE tag (0x30)
+        if (pos >= der.length) return null;
         int seqLenByte = der[pos++] & 0xff;
         if ((seqLenByte & 0x80) != 0) {
-            pos += seqLenByte & 0x7f; // skip multi-byte length
+            int lenLen = seqLenByte & 0x7f;
+            if (pos + lenLen > der.length) return null;
+            pos += lenLen; // skip multi-byte length
         }
+        if (pos + 2 > der.length) return null;
         pos++; // skip INTEGER tag for r
         int rLen = der[pos++] & 0xff;
+        if (pos + rLen + 2 > der.length) return null;
         byte[] r = java.util.Arrays.copyOfRange(der, pos, pos + rLen);
         pos += rLen;
         pos++; // skip INTEGER tag for s
+        if (pos >= der.length) return null;
         int sLen = der[pos++] & 0xff;
+        if (pos + sLen > der.length) return null;
         byte[] s = java.util.Arrays.copyOfRange(der, pos, pos + sLen);
 
         byte[] result = new byte[componentLen * 2];
@@ -183,7 +191,7 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
                     .stripTrailingZeros();
             return bd.longValueExact();
         } catch (NumberFormatException | ArithmeticException e) {
-            throw new IllegalArgumentException("Non-numeric or non-integer time claim: " + value, e);
+            throw new IllegalArgumentException("Non-numeric or non-integer time claim", e);
         }
     }
 
@@ -251,7 +259,13 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
         requireStarted();
         String[] tokens = message.split("\\.", 3);
         if (tokens.length != 3) return null;
-        JwtHeader header = mapper.readValue(base64Decoder.decode(tokens[0]), JwtHeader.class);
+        JwtHeader header;
+        try {
+            header = mapper.readValue(base64Decoder.decode(tokens[0]), JwtHeader.class);
+        } catch (Exception e) {
+            return null;
+        }
+        if (header == null || header.alg() == null) return null;
         if (!verifySignature(header.alg(), tokens[2], key, tokens[0], tokens[1])) {
             return null;
         }
