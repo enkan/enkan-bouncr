@@ -104,22 +104,22 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
         pos++; // skip INTEGER tag for r
         int rLen = der[pos++] & 0xff;
         if (pos + rLen + 2 > der.length) return null;
-        byte[] r = java.util.Arrays.copyOfRange(der, pos, pos + rLen);
+        int rSrc = pos;
         pos += rLen;
         pos++; // skip INTEGER tag for s
         int sLen = der[pos++] & 0xff;
         if (pos + sLen > der.length) return null;
-        byte[] s = java.util.Arrays.copyOfRange(der, pos, pos + sLen);
+        int sSrc = pos;
 
         byte[] result = new byte[componentLen * 2];
-        // Copy r right-aligned, stripping any leading 0x00 padding byte
-        int rStart = r.length > componentLen ? r.length - componentLen : 0;
-        int rDest = componentLen - (r.length - rStart);
-        System.arraycopy(r, rStart, result, rDest, r.length - rStart);
-        // Copy s right-aligned
-        int sStart = s.length > componentLen ? s.length - componentLen : 0;
-        int sDest = componentLen * 2 - (s.length - sStart);
-        System.arraycopy(s, sStart, result, sDest, s.length - sStart);
+        // Copy r right-aligned into result[0..componentLen), stripping any leading 0x00 padding
+        int rSkip = rLen > componentLen ? rLen - componentLen : 0;
+        int rCopy = rLen - rSkip;
+        System.arraycopy(der, rSrc + rSkip, result, componentLen - rCopy, rCopy);
+        // Copy s right-aligned into result[componentLen..2*componentLen), stripping any leading 0x00 padding
+        int sSkip = sLen > componentLen ? sLen - componentLen : 0;
+        int sCopy = sLen - sSkip;
+        System.arraycopy(der, sSrc + sSkip, result, componentLen * 2 - sCopy, sCopy);
         return result;
     }
 
@@ -127,50 +127,45 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
      * Converts a raw R||S ECDSA signature (RFC 7518 §3.4) to DER encoding for BouncyCastle verification.
      * Returns null if the input is null, empty, or has odd length.
      * Handles DER long-form length encoding for sequences longer than 127 bytes (e.g. ES512/P-521).
+     * Writes directly into the output buffer to avoid intermediate array allocations.
      */
     private byte[] p1363ToDer(byte[] p1363) {
         if (p1363 == null || p1363.length == 0 || (p1363.length % 2) != 0) {
             return null;
         }
-        int componentLen = p1363.length / 2;
-        byte[] r = java.util.Arrays.copyOfRange(p1363, 0, componentLen);
-        byte[] s = java.util.Arrays.copyOfRange(p1363, componentLen, p1363.length);
-        // Strip leading 0x00 bytes for minimal DER encoding, leaving at least one byte
-        r = stripLeadingZeros(r);
-        s = stripLeadingZeros(s);
-        // Prepend 0x00 if high bit is set to keep the integer positive in DER
-        byte[] rDer = r[0] < 0 ? prependZero(r) : r;
-        byte[] sDer = s[0] < 0 ? prependZero(s) : s;
-        int contentLen = 2 + rDer.length + 2 + sDer.length;
+        int half = p1363.length / 2;
+
+        // Compute stripped offsets and DER integer lengths inline (no intermediate arrays)
+        int rOff = 0;
+        while (rOff < half - 1 && p1363[rOff] == 0) rOff++;
+        boolean rPad = (p1363[rOff] & 0x80) != 0;
+        int rDerLen = half - rOff + (rPad ? 1 : 0);
+
+        int sOff = half;
+        while (sOff < p1363.length - 1 && p1363[sOff] == 0) sOff++;
+        boolean sPad = (p1363[sOff] & 0x80) != 0;
+        int sDerLen = p1363.length - sOff + (sPad ? 1 : 0);
+
+        int contentLen = 2 + rDerLen + 2 + sDerLen;
         // Use long-form length encoding when contentLen > 127 (required for ES512/P-521)
-        byte[] lenBytes = contentLen > 127
-                ? new byte[]{(byte) 0x81, (byte) contentLen}
-                : new byte[]{(byte) contentLen};
-        byte[] der = new byte[1 + lenBytes.length + contentLen];
+        boolean longForm = contentLen > 127;
+        byte[] der = new byte[1 + (longForm ? 2 : 1) + contentLen];
         int i = 0;
         der[i++] = 0x30;
-        System.arraycopy(lenBytes, 0, der, i, lenBytes.length);
-        i += lenBytes.length;
+        if (longForm) {
+            der[i++] = (byte) 0x81;
+        }
+        der[i++] = (byte) contentLen;
         der[i++] = 0x02;
-        der[i++] = (byte) rDer.length;
-        System.arraycopy(rDer, 0, der, i, rDer.length);
-        i += rDer.length;
+        der[i++] = (byte) rDerLen;
+        if (rPad) der[i++] = 0x00;
+        System.arraycopy(p1363, rOff, der, i, half - rOff);
+        i += half - rOff;
         der[i++] = 0x02;
-        der[i++] = (byte) sDer.length;
-        System.arraycopy(sDer, 0, der, i, sDer.length);
+        der[i++] = (byte) sDerLen;
+        if (sPad) der[i++] = 0x00;
+        System.arraycopy(p1363, sOff, der, i, p1363.length - sOff);
         return der;
-    }
-
-    private byte[] prependZero(byte[] b) {
-        byte[] r = new byte[b.length + 1];
-        System.arraycopy(b, 0, r, 1, b.length);
-        return r;
-    }
-
-    private byte[] stripLeadingZeros(byte[] b) {
-        int i = 0;
-        while (i < b.length - 1 && b[i] == 0) i++;
-        return i == 0 ? b : java.util.Arrays.copyOfRange(b, i, b.length);
     }
 
     /**
@@ -199,6 +194,8 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
     }
 
     private long toLong(Object value) {
+        if (value instanceof Long l)    return l;
+        if (value instanceof Integer i) return i.longValue();
         try {
             java.math.BigDecimal bd = new java.math.BigDecimal(value.toString())
                     .stripTrailingZeros();
@@ -220,7 +217,9 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
                 SecretKeySpec keySpec = new SecretKeySpec(key, signAlgorithm);
                 Mac mac = Mac.getInstance(signAlgorithm);
                 mac.init(keySpec);
-                mac.update(String.join(".", header, payload).getBytes(StandardCharsets.US_ASCII));
+                mac.update(header.getBytes(StandardCharsets.US_ASCII));
+                mac.update((byte) '.');
+                mac.update(payload.getBytes(StandardCharsets.US_ASCII));
                 byte[] expected = mac.doFinal();
                 byte[] provided;
                 try {
@@ -236,7 +235,9 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
                 KeyFactory kf = KeyFactory.getInstance(keyAlg, "BC");
                 PublicKey publicKey = kf.generatePublic(new X509EncodedKeySpec(key));
                 verifier.initVerify(publicKey);
-                verifier.update(String.join(".", header, payload).getBytes(StandardCharsets.US_ASCII));
+                verifier.update(header.getBytes(StandardCharsets.US_ASCII));
+                verifier.update((byte) '.');
+                verifier.update(payload.getBytes(StandardCharsets.US_ASCII));
                 // Convert JWS raw R||S to DER for BouncyCastle verification (RFC 7518 §3.4)
                 byte[] sigBytes;
                 try {
@@ -329,7 +330,9 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
                 SecretKeySpec keySpec = new SecretKeySpec(key, signAlgorithm);
                 Mac mac = Mac.getInstance(signAlgorithm);
                 mac.init(keySpec);
-                mac.update(String.join(".", encodedHeader, payload).getBytes(StandardCharsets.US_ASCII));
+                mac.update(encodedHeader.getBytes(StandardCharsets.US_ASCII));
+                mac.update((byte) '.');
+                mac.update(payload.getBytes(StandardCharsets.US_ASCII));
                 encodedSignature = base64Encoder.encodeToString(mac.doFinal());
             } else {
                 boolean isEcdsa = signAlgorithm.contains("ECDSA");
@@ -338,7 +341,9 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
                 KeyFactory kf = KeyFactory.getInstance(keyAlg, "BC");
                 PrivateKey privateKey = kf.generatePrivate(new PKCS8EncodedKeySpec(key));
                 signature.initSign(privateKey, prng);
-                signature.update(String.join(".", encodedHeader, payload).getBytes(StandardCharsets.US_ASCII));
+                signature.update(encodedHeader.getBytes(StandardCharsets.US_ASCII));
+                signature.update((byte) '.');
+                signature.update(payload.getBytes(StandardCharsets.US_ASCII));
                 byte[] rawSig = signature.sign();
                 if (isEcdsa) {
                     // Derive key length from the actual EC key to avoid alg/key mismatch
