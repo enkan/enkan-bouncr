@@ -15,6 +15,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
+import java.security.interfaces.ECKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
@@ -104,9 +105,13 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
 
     /**
      * Converts a raw R||S ECDSA signature (RFC 7518 §3.4) to DER encoding for BouncyCastle verification.
+     * Returns null if the input is empty, has odd length, or is otherwise malformed.
      * Handles DER long-form length encoding for sequences longer than 127 bytes (e.g. ES512/P-521).
      */
     private byte[] p1363ToDer(byte[] p1363) {
+        if (p1363 == null || p1363.length == 0 || (p1363.length % 2) != 0) {
+            return null;
+        }
         int componentLen = p1363.length / 2;
         byte[] r = java.util.Arrays.copyOfRange(p1363, 0, componentLen);
         byte[] s = java.util.Arrays.copyOfRange(p1363, componentLen, p1363.length);
@@ -137,12 +142,6 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
         byte[] r = new byte[b.length + 1];
         System.arraycopy(b, 0, r, 1, b.length);
         return r;
-    }
-
-    private byte[] stripLeadingZeros(byte[] b) {
-        int start = 0;
-        while (start < b.length - 1 && b[start] == 0) start++;
-        return start == 0 ? b : java.util.Arrays.copyOfRange(b, start, b.length);
     }
 
     /**
@@ -204,8 +203,18 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
                 verifier.update(String.join(".", header, payload).getBytes(StandardCharsets.US_ASCII));
                 // Convert JWS raw R||S to DER for BouncyCastle verification (RFC 7518 §3.4)
                 byte[] sigBytes = base64Decoder.decode(signature);
-                byte[] derSig = isEcdsa ? p1363ToDer(sigBytes) : sigBytes;
-                return verifier.verify(derSig);
+                if (isEcdsa) {
+                    // Validate RFC 7518 §3.4 P1363 length before conversion
+                    int expectedLen = alg.equals("ES256") ? 64 : alg.equals("ES384") ? 96 : alg.equals("ES512") ? 132 : -1;
+                    if (sigBytes.length == 0 || (sigBytes.length % 2) != 0
+                            || (expectedLen > 0 && sigBytes.length != expectedLen)) {
+                        return false;
+                    }
+                    byte[] derSig = p1363ToDer(sigBytes);
+                    if (derSig == null) return false;
+                    return verifier.verify(derSig);
+                }
+                return verifier.verify(sigBytes);
             }
         } catch (NoSuchAlgorithmException e) {
             throw new UnreachableException(e);
@@ -285,8 +294,8 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
                 signature.update(String.join(".", encodedHeader, payload).getBytes(StandardCharsets.US_ASCII));
                 byte[] rawSig = signature.sign();
                 if (isEcdsa) {
-                    // Convert DER to raw R||S concatenation as required by RFC 7518 §3.4
-                    int keyBits = header.alg().equals("ES256") ? 256 : header.alg().equals("ES384") ? 384 : 521;
+                    // Derive key length from the actual EC key to avoid alg/key mismatch
+                    int keyBits = ((ECKey) privateKey).getParams().getOrder().bitLength();
                     rawSig = derToP1363(rawSig, keyBits);
                 }
                 encodedSignature = base64Encoder.encodeToString(rawSig);
