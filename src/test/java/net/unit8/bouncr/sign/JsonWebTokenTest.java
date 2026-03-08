@@ -89,6 +89,21 @@ public class JsonWebTokenTest {
         assertThat(result).containsEntry("sub", "kawasima");
     }
 
+    // --- ECDSA algorithms (RFC 7518 §3.4) ---
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ES256", "ES384", "ES512"})
+    public void ecdsaRoundtrip(String alg) throws Exception {
+        KeyPairGenerator gen = KeyPairGenerator.getInstance("EC");
+        gen.initialize(alg.equals("ES256") ? 256 : alg.equals("ES384") ? 384 : 521);
+        KeyPair keyPair = gen.generateKeyPair();
+        Map<String, Object> claims = Map.of("sub", "kawasima");
+
+        String token = sign(claims, alg, keyPair.getPrivate());
+        Map<String, Object> result = jwt.unsign(token, keyPair.getPublic(), new TypeReference<Map<String, Object>>() {});
+        assertThat(result).containsEntry("sub", "kawasima");
+    }
+
     @Test
     public void rs256() throws Exception {
         KeyPair keyPair = generateKeyPair();

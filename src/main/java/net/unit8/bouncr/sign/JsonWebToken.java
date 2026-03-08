@@ -41,6 +41,9 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
             "PS256", "SHA256withRSAandMGF1",
             "PS384", "SHA384withRSAandMGF1",
             "PS512", "SHA512withRSAandMGF1",
+            "ES256", "SHA256withECDSA",
+            "ES384", "SHA384withECDSA",
+            "ES512", "SHA512withECDSA",
             "none",  "none"
             );
 
@@ -116,7 +119,8 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
                 return Objects.equals(signature, base64Encoder.encodeToString(mac.doFinal()));
             } else {
                 Signature verifier = Signature.getInstance(signAlgorithm, "BC");
-                KeyFactory kf = KeyFactory.getInstance("RSA");
+                String keyAlg = signAlgorithm.contains("ECDSA") ? "EC" : "RSA";
+                KeyFactory kf = KeyFactory.getInstance(keyAlg, "BC");
                 PublicKey publicKey = kf.generatePublic(new X509EncodedKeySpec(key));
                 verifier.initVerify(publicKey);
                 verifier.update(String.join(".", header, payload).getBytes(StandardCharsets.US_ASCII));
@@ -189,7 +193,8 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
                 encodedSignature = base64Encoder.encodeToString(mac.doFinal());
             } else {
                 Signature signature = Signature.getInstance(signAlgorithm, "BC");
-                KeyFactory kf = KeyFactory.getInstance("RSA");
+                String keyAlg = signAlgorithm.contains("ECDSA") ? "EC" : "RSA";
+                KeyFactory kf = KeyFactory.getInstance(keyAlg, "BC");
                 PrivateKey privateKey = kf.generatePrivate(new PKCS8EncodedKeySpec(key));
                 signature.initSign(privateKey, prng);
                 signature.update(String.join(".", encodedHeader, payload).getBytes(StandardCharsets.US_ASCII));
