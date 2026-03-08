@@ -4,13 +4,13 @@ import tools.jackson.core.type.TypeReference;
 import enkan.data.HttpRequest;
 import enkan.security.AuthBackend;
 import net.unit8.bouncr.sign.JsonWebToken;
+import net.unit8.bouncr.sign.JwtHeader;
 
 import jakarta.inject.Inject;
 import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 import java.security.PublicKey;
 import java.util.*;
-import java.util.Base64;
 import java.util.stream.Collectors;
 
 import static enkan.util.ThreadingUtils.some;
@@ -73,31 +73,14 @@ public class BouncrBackend implements AuthBackend<HttpRequest, Map<String, Objec
      * Returns silently when the token is unparseable (let unsign() handle it).
      */
     private void validateAlgFamilyOrThrow(String token) {
-        try {
-            String[] parts = token.split("\\.", 3);
-            if (parts.length < 2) return;
-            String headerJson = new String(Base64.getUrlDecoder().decode(parts[0]),
-                    java.nio.charset.StandardCharsets.UTF_8);
-            // Extract "alg" value with a simple string search to avoid a Jackson dependency here
-            int algIdx = headerJson.indexOf("\"alg\"");
-            if (algIdx < 0) return;
-            int colon = headerJson.indexOf(':', algIdx);
-            if (colon < 0) return;
-            int start = headerJson.indexOf('"', colon) + 1;
-            int end   = headerJson.indexOf('"', start);
-            if (start <= 0 || end <= start) return;
-            String alg = headerJson.substring(start, end);
-            boolean isHmac = alg.startsWith("HS");
-            if (publicKey != null && isHmac) {
-                throw new enkan.exception.MisconfigurationException("bouncr.ALG_KEY_FAMILY_MISMATCH",
-                        "Token uses HMAC algorithm '" + alg + "' but an asymmetric publicKey is configured.");
-            }
-            if (key != null && !isHmac) {
-                throw new enkan.exception.MisconfigurationException("bouncr.ALG_KEY_FAMILY_MISMATCH",
-                        "Token uses asymmetric algorithm '" + alg + "' but a symmetric key is configured.");
-            }
-        } catch (IllegalArgumentException e) {
-            // Malformed Base64 — let unsign() return null naturally
+        JwtHeader header = jwt.decodeHeader(token);
+        if (header == null || header.alg() == null) return;
+        boolean isHmac = header.alg().startsWith("HS");
+        if (publicKey != null && isHmac) {
+            throw new enkan.exception.MisconfigurationException("bouncr.ALG_KEY_FAMILY_MISMATCH");
+        }
+        if (key != null && !isHmac) {
+            throw new enkan.exception.MisconfigurationException("bouncr.ALG_KEY_FAMILY_MISMATCH");
         }
     }
 

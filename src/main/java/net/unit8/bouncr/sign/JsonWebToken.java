@@ -60,6 +60,21 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
                 .orElse(null);
     }
 
+    /**
+     * Decodes the JOSE header from a JWT token string without verifying the signature.
+     * Returns null if the token is malformed or the header cannot be parsed.
+     */
+    public JwtHeader decodeHeader(String token) {
+        if (token == null || mapper == null) return null;
+        String[] parts = token.split("\\.", 3);
+        if (parts.length < 2) return null;
+        try {
+            return mapper.readValue(base64Decoder.decode(parts[0]), JwtHeader.class);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public <T> T decodePayload(String encoded, TypeReference<T> payloadType) {
         requireStarted();
         return some(encoded,
@@ -79,7 +94,6 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
         // Length may be long-form: 0x81 <1-byte-len> for lengths >= 128
         if (der == null || der.length < 8) return null;
         int pos = 1; // skip SEQUENCE tag (0x30)
-        if (pos >= der.length) return null;
         int seqLenByte = der[pos++] & 0xff;
         if ((seqLenByte & 0x80) != 0) {
             int lenLen = seqLenByte & 0x7f;
