@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;
+import java.util.List;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -15,8 +15,8 @@ public class JwtClaim implements Serializable {
     private String iss;
     /** Subject */
     private String sub;
-    /** Audience */
-    private String aud;
+    /** Audience — single string or array per RFC 7519 §4.1.3 */
+    private Object aud;
     /** Expires*/
     private Long exp;
     /** Issued at */
@@ -28,8 +28,8 @@ public class JwtClaim implements Serializable {
     private String nonce;
     /** Authentication Context Class Reference */
     private String acr;
-    /** Authentication Methods Reference */
-    private String amr;
+    /** Authentication Methods Reference — array of strings per OIDC Core §2 */
+    private List<String> amr;
 
     /** Authorized party*/
     private String azp;
@@ -60,8 +60,9 @@ public class JwtClaim implements Serializable {
     @JsonProperty("phone_number_verified")
     private Boolean phoneNumberVerified;
     private ClaimAddress address;
+    /** NumericDate per RFC 7519 §2 */
     @JsonProperty("updated_at")
-    private LocalDateTime updatedAt;
+    private Long updatedAt;
 
     public String getEmail() {
         return email;
@@ -95,11 +96,11 @@ public class JwtClaim implements Serializable {
         this.iss = iss;
     }
 
-    public String getAud() {
+    public Object getAud() {
         return aud;
     }
 
-    public void setAud(String aud) {
+    public void setAud(Object aud) {
         this.aud = aud;
     }
 
@@ -159,11 +160,11 @@ public class JwtClaim implements Serializable {
         this.acr = acr;
     }
 
-    public String getAmr() {
+    public List<String> getAmr() {
         return amr;
     }
 
-    public void setAmr(String amr) {
+    public void setAmr(List<String> amr) {
         this.amr = amr;
     }
 
@@ -287,11 +288,11 @@ public class JwtClaim implements Serializable {
         this.address = address;
     }
 
-    public LocalDateTime getUpdatedAt() {
+    public Long getUpdatedAt() {
         return updatedAt;
     }
 
-    public void setUpdatedAt(LocalDateTime updatedAt) {
+    public void setUpdatedAt(Long updatedAt) {
         this.updatedAt = updatedAt;
     }
 }
