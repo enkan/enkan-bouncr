@@ -367,20 +367,16 @@ public class JsonWebTokenTest {
 
     @Test
     public void derToP1363ReturnsNullForTruncatedInput() throws Exception {
-        // Build a valid ES256 token then replace its signature with a truncated DER blob
-        KeyPairGenerator gen = KeyPairGenerator.getInstance("EC", "BC");
-        gen.initialize(new ECGenParameterSpec("secp256r1"));
-        KeyPair kp = gen.generateKeyPair();
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("sub", "test");
-        String token = jwt.sign(claims, new JwtHeader(null, "ES256", null), kp.getPrivate());
+        // Test derToP1363 directly via reflection: truncated DER must not throw AIOOBE
+        java.lang.reflect.Method m = JsonWebToken.class.getDeclaredMethod("derToP1363", byte[].class, int.class);
+        m.setAccessible(true);
 
-        // Replace signature part with truncated/garbage Base64
-        String[] parts = token.split("\\.");
-        String truncated = parts[0] + "." + parts[1] + "."
-                + Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[]{0x30, 0x05, 0x02});
-        assertThat(jwt.unsign(truncated, kp.getPublic(), new TypeReference<Map<String, Object>>() {}))
-                .isNull();
+        // null input
+        assertThat(m.invoke(jwt, (Object) null, 256)).isNull();
+        // too short
+        assertThat(m.invoke(jwt, new byte[]{0x30, 0x05, 0x02}, 256)).isNull();
+        // truncated sequence body (DER says length=5 but only 2 bytes follow)
+        assertThat(m.invoke(jwt, new byte[]{0x30, 0x05, 0x02, 0x01, 0x00}, 256)).isNull();
     }
 
     // --- security hardening: malformed JWT header ---
