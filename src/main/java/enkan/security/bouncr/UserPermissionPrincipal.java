@@ -2,26 +2,15 @@ package enkan.security.bouncr;
 
 import enkan.security.UserPrincipal;
 
-import java.io.Serializable;
 import java.util.Map;
 import java.util.Set;
 
-public class UserPermissionPrincipal implements Serializable, UserPrincipal {
-    private final Long id;
-    private final String account;
-    private final Map<String, Object> profiles;
-    private final Set<String> permissions;
-
-    public UserPermissionPrincipal(Long id, String account, Map<String, Object> profiles, Set<String> permissions) {
-        this.id = id;
-        this.account = account;
-        this.profiles = profiles;
-        this.permissions = permissions;
-    }
-
-    public Long getId() {
-        return id;
-    }
+public record UserPermissionPrincipal(
+        Long id,
+        String account,
+        Map<String, Object> profiles,
+        Set<String> permissions
+) implements UserPrincipal {
 
     @Override
     public String getName() {
@@ -31,6 +20,10 @@ public class UserPermissionPrincipal implements Serializable, UserPrincipal {
     @Override
     public boolean hasPermission(String permission) {
         return permissions.contains(permission);
+    }
+
+    public Long getId() {
+        return id;
     }
 
     public Set<String> getPermissions() {

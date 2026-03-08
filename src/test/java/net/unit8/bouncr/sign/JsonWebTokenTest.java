@@ -47,15 +47,11 @@ public class JsonWebTokenTest {
     }
 
     private String sign(Map<String, Object> claims, String alg, byte[] key) {
-        JwtHeader header = new JwtHeader();
-        header.setAlg(alg);
-        return jwt.sign(claims, header, key);
+        return jwt.sign(claims, new JwtHeader(alg, null), key);
     }
 
     private String sign(Map<String, Object> claims, String alg, PrivateKey key) {
-        JwtHeader header = new JwtHeader();
-        header.setAlg(alg);
-        return jwt.sign(claims, header, key);
+        return jwt.sign(claims, new JwtHeader(alg, null), key);
     }
 
     // --- HMAC algorithms ---
@@ -158,9 +154,7 @@ public class JsonWebTokenTest {
         claim.setSub("kawasima");
         claim.setIss("test-issuer");
 
-        JwtHeader header = new JwtHeader();
-        header.setAlg("RS256");
-        String token = jwt.sign(claim, header, keyPair.getPrivate());
+        String token = jwt.sign(claim, new JwtHeader("RS256", null), keyPair.getPrivate());
         Map<String, Object> result = jwt.unsign(token, keyPair.getPublic(), new TypeReference<Map<String, Object>>() {});
         assertThat(result).containsEntry("sub", "kawasima");
         assertThat(result).containsEntry("iss", "test-issuer");
@@ -172,9 +166,7 @@ public class JsonWebTokenTest {
         JwtClaim claim = new JwtClaim();
         claim.setSub("kawasima");
 
-        JwtHeader header = new JwtHeader();
-        header.setAlg("HS256");
-        String token = jwt.sign(claim, header, key);
+        String token = jwt.sign(claim, new JwtHeader("HS256", null), key);
         Map<String, Object> result = jwt.unsign(token, key, new TypeReference<Map<String, Object>>() {});
         assertThat(result).containsEntry("sub", "kawasima");
     }
@@ -257,9 +249,7 @@ public class JsonWebTokenTest {
     public void signThrowsWhenNotStarted() {
         JsonWebToken unstartedJwt = new JsonWebToken();
         byte[] key = "key".getBytes(StandardCharsets.UTF_8);
-        JwtHeader header = new JwtHeader();
-        header.setAlg("HS256");
-        assertThatThrownBy(() -> unstartedJwt.sign(Map.of("sub", "x"), header, key))
+        assertThatThrownBy(() -> unstartedJwt.sign(Map.of("sub", "x"), new JwtHeader("HS256", null), key))
                 .isInstanceOf(MisconfigurationException.class);
     }
 
@@ -267,9 +257,7 @@ public class JsonWebTokenTest {
 
     @Test
     public void signThrowsWhenKeyIsNull() {
-        JwtHeader header = new JwtHeader();
-        header.setAlg("HS256");
-        assertThatThrownBy(() -> jwt.sign("payload", header, (byte[]) null))
+        assertThatThrownBy(() -> jwt.sign("payload", new JwtHeader("HS256", null), (byte[]) null))
                 .isInstanceOf(MisconfigurationException.class);
     }
 
@@ -278,9 +266,7 @@ public class JsonWebTokenTest {
     @Test
     public void signThrowsWhenAlgIsNone() {
         byte[] key = "key".getBytes(StandardCharsets.UTF_8);
-        JwtHeader header = new JwtHeader();
-        header.setAlg("none");
-        assertThatThrownBy(() -> jwt.sign(Map.of("sub", "x"), header, key))
+        assertThatThrownBy(() -> jwt.sign(Map.of("sub", "x"), new JwtHeader("none", null), key))
                 .isInstanceOf(MisconfigurationException.class);
     }
 }

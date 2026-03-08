@@ -52,7 +52,7 @@ public class BouncrBackend implements AuthBackend<HttpRequest, Map<String, Objec
         // form the 'profiles' map passed to UserPermissionPrincipal.
         Long id = Long.valueOf(Objects.toString(authenticationData.remove("uid"), "0"));
         String account = (String) authenticationData.remove("sub");
-        List permissions = Optional.ofNullable(authenticationData.remove("permissions"))
+        List<String> permissions = Optional.ofNullable(authenticationData.remove("permissions"))
                 .filter(List.class::isInstance)
                 .map(List.class::cast)
                 .orElse(Collections.emptyList());

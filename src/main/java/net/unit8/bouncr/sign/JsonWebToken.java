@@ -98,7 +98,7 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
         String[] tokens = message.split("\\.", 3);
         if (tokens.length != 3) return null;
         JwtHeader header = mapper.readValue(base64Decoder.decode(tokens[0]), JwtHeader.class);
-        if (verifySignature(header.getAlg(), tokens[2], key, tokens[0], tokens[1])) {
+        if (verifySignature(header.alg(), tokens[2], key, tokens[0], tokens[1])) {
             return decodePayload(/*Payload*/tokens[1], typeReference);
         } else {
             return null;
@@ -130,8 +130,8 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
         }
         String encodedHeader = encodeHeader(header);
         try {
-            String signAlgorithm = ALGORITHMS.getString(header.getAlg());
-            if (signAlgorithm == null) throw new MisconfigurationException("bouncr.NO_SUCH_JWT_ALGORITHM", header.getAlg());
+            String signAlgorithm = ALGORITHMS.getString(header.alg());
+            if (signAlgorithm == null) throw new MisconfigurationException("bouncr.NO_SUCH_JWT_ALGORITHM", header.alg());
             if (signAlgorithm.equals("none")) {
                 throw new MisconfigurationException("bouncr.ALG_NONE_NOT_ALLOWED");
             }

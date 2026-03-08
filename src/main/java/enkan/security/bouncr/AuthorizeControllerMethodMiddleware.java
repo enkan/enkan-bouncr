@@ -10,7 +10,6 @@ import enkan.security.UserPrincipal;
 
 import jakarta.annotation.security.RolesAllowed;
 import java.lang.reflect.Method;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 import static enkan.util.BeanBuilder.*;
@@ -28,15 +27,10 @@ public class AuthorizeControllerMethodMiddleware implements WebMiddleware {
     @Override
     public <NNREQ, NNRES> HttpResponse handle(HttpRequest request, MiddlewareChain<HttpRequest, HttpResponse, NNREQ, NNRES> chain) {
         Method m = ((Routable) request).getControllerMethod();
-        Optional<UserPrincipal> principal = Stream.of(request.getPrincipal())
-                .filter(UserPrincipal.class::isInstance)
-                .map(UserPrincipal.class::cast)
-                .findAny();
-
         RolesAllowed rolesAllowed = m.getAnnotation(RolesAllowed.class);
         if (rolesAllowed != null) {
-            if (!principal.isPresent() || !Stream.of(rolesAllowed.value())
-                    .anyMatch(permission -> principal.filter(p -> p.hasPermission(permission)).isPresent())) {
+            if (!(request.getPrincipal() instanceof UserPrincipal principal)
+                    || Stream.of(rolesAllowed.value()).noneMatch(principal::hasPermission)) {
                 return builder(HttpResponse.of("Not allowed"))
                         .set(HttpResponse::setStatus, 403)
                         .build();

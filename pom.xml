@@ -6,12 +6,13 @@
     <parent>
         <groupId>net.unit8.enkan</groupId>
         <artifactId>enkan-parent</artifactId>
-        <version>0.12.0-SNAPSHOT</version>
+        <version>0.13.1-SNAPSHOT</version>
     </parent>
 
     <artifactId>enkan-bouncr</artifactId>
     <packaging>jar</packaging>
     <name>enkan-bouncr</name>
+    <version>0.13.0</version>
     <description>Enkan library for Bouncr</description>
     <url>http://github.com/enkan/enkan-bouncr</url>
 
@@ -19,8 +20,8 @@
 
     <licenses>
         <license>
-            <name>Eclipse Public License (EPL), Version 1.0</name>
-            <url>http://www.eclipse.org/legal/epl-v10.html</url>
+            <name>Eclipse Public License (EPL), Version 2.0</name>
+            <url>http://www.eclipse.org/legal/epl-2.0.html</url>
             <distribution>repo</distribution>
         </license>
     </licenses>
@@ -33,10 +34,8 @@
     </scm>
 
     <properties>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
-        <maven.compiler.release>21</maven.compiler.release>
-        <jackson.version>2.21.1</jackson.version>
+        <maven.compiler.release>25</maven.compiler.release>
+        <jackson.version>3.1.0</jackson.version>
     </properties>
 
     <dependencies>
@@ -46,13 +45,8 @@
             <version>${enkan.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
+            <groupId>tools.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>${jackson.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.datatype</groupId>
-            <artifactId>jackson-datatype-jsr310</artifactId>
             <version>${jackson.version}</version>
         </dependency>
         <dependency>
@@ -96,18 +90,6 @@
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
             <version>3.27.7</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.hibernate.validator</groupId>
-            <artifactId>hibernate-validator</artifactId>
-            <version>8.0.3.Final</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.glassfish.expressly</groupId>
-            <artifactId>expressly</artifactId>
-            <version>6.0.0</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
