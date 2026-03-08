@@ -67,24 +67,33 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
 
     /**
      * Validates exp and nbf claims per RFC 7519 §4.1.4 and §4.1.5.
-     * Returns false if the token is expired or not yet valid.
+     * Returns false if the token is expired, not yet valid, or has malformed time claims.
      */
     private boolean validateTimeClaims(Map<String, Object> claims) {
         long now = Instant.now().getEpochSecond();
         Object exp = claims.get("exp");
-        if (exp != null && toLong(exp) <= now) {
-            return false;
+        if (exp != null) {
+            try {
+                if (toLong(exp) <= now) return false;
+            } catch (IllegalArgumentException e) {
+                return false;
+            }
         }
         Object nbf = claims.get("nbf");
-        if (nbf != null && toLong(nbf) > now) {
-            return false;
+        if (nbf != null) {
+            try {
+                if (toLong(nbf) > now) return false;
+            } catch (IllegalArgumentException e) {
+                return false;
+            }
         }
         return true;
     }
 
     private long toLong(Object value) {
         try {
-            java.math.BigDecimal bd = new java.math.BigDecimal(value.toString());
+            java.math.BigDecimal bd = new java.math.BigDecimal(value.toString())
+                    .stripTrailingZeros();
             return bd.longValueExact();
         } catch (NumberFormatException | ArithmeticException e) {
             throw new IllegalArgumentException("Non-numeric or non-integer time claim: " + value, e);
@@ -129,17 +138,16 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
         if (!verifySignature(header.alg(), tokens[2], key, tokens[0], tokens[1])) {
             return null;
         }
-        @SuppressWarnings("unchecked")
-        Map<String, Object> claims = (Map<String, Object>) mapper.readValue(
-                new String(base64Decoder.decode(tokens[1]), StandardCharsets.UTF_8), Map.class);
-        try {
-            if (claims == null || !validateTimeClaims(claims)) {
+        String payloadJson = new String(base64Decoder.decode(tokens[1]), StandardCharsets.UTF_8);
+        Object payload = mapper.readValue(payloadJson, Object.class);
+        if (payload instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> claims = (Map<String, Object>) payload;
+            if (!validateTimeClaims(claims)) {
                 return null;
             }
-        } catch (IllegalArgumentException e) {
-            return null;
         }
-        return mapper.convertValue(claims, typeReference);
+        return mapper.convertValue(payload, typeReference);
     }
 
     public <T> T unsign(String message, byte[] key, Class<T> claimClass) {
