@@ -4,6 +4,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.io.Serializable;
 
+/**
+ * Typed bean for the OIDC {@code address} claim (OIDC Core §5.1.1).
+ *
+ * <p>All fields are optional. {@code streetAddress} maps to the JSON key
+ * {@code street_address}, and {@code postalCode} maps to {@code postal_code}.
+ */
 public class ClaimAddress implements Serializable {
     private String formatted;
     @JsonProperty("street_address")

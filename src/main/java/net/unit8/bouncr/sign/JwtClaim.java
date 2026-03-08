@@ -7,6 +7,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.io.Serializable;
 import java.util.List;
 
+/**
+ * Typed bean for JWT / OIDC ID Token claims (RFC 7519 §4 and OIDC Core §2).
+ *
+ * <p>Covers the standard registered claim names ({@code iss}, {@code sub}, {@code aud},
+ * {@code exp}, {@code iat}) as well as OIDC-specific profile and contact claims.
+ * Unknown claims are silently ignored during deserialization.
+ */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class JwtClaim implements Serializable {

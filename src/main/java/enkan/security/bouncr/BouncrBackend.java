@@ -15,6 +15,22 @@ import java.util.stream.Collectors;
 
 import static enkan.util.ThreadingUtils.some;
 
+/**
+ * Enkan {@link AuthBackend} that authenticates requests by verifying a JWT carried in the
+ * {@code x-bouncr-credential} HTTP header.
+ *
+ * <p>Configure exactly one of:
+ * <ul>
+ *   <li>{@link #setKey(String)} / {@link #setKey(byte[])} — HMAC shared secret (HS256/HS384/HS512)</li>
+ *   <li>{@link #setPublicKey(PublicKey)} — RSA or EC public key (RS/PS/ES family algorithms)</li>
+ * </ul>
+ *
+ * <p>The {@link net.unit8.bouncr.sign.JsonWebToken} component must be injected via
+ * {@code @Inject} or {@link #setJwt(JsonWebToken)} before use.
+ *
+ * <p>On successful verification, {@link #authenticate} returns a {@link UserPermissionPrincipal}
+ * populated from the {@code uid}, {@code sub}, and {@code permissions} claims.
+ */
 public class BouncrBackend implements AuthBackend<HttpRequest, Map<String, Object>> {
     private PublicKey publicKey;
     private byte[] key;
