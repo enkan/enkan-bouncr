@@ -17,6 +17,7 @@ import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Objects;
@@ -63,6 +64,30 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
                 .orElse(null);
     }
 
+    /**
+     * Validates exp and nbf claims per RFC 7519 §4.1.4 and §4.1.5.
+     * Returns false if the token is expired or not yet valid.
+     */
+    private boolean validateTimeClaims(Map<String, Object> claims) {
+        long now = Instant.now().getEpochSecond();
+        Object exp = claims.get("exp");
+        if (exp != null && toLong(exp) < now) {
+            return false;
+        }
+        Object nbf = claims.get("nbf");
+        if (nbf != null && toLong(nbf) > now) {
+            return false;
+        }
+        return true;
+    }
+
+    private long toLong(Object value) {
+        if (value instanceof Number n) {
+            return n.longValue();
+        }
+        return Long.parseLong(value.toString());
+    }
+
     private boolean verifySignature(String alg, String signature, byte[] key, String header, String payload) {
         String signAlgorithm = ALGORITHMS.getString(alg);
         if (signAlgorithm == null) throw new MisconfigurationException("bouncr.NO_SUCH_JWT_ALGORITHM", alg);
@@ -98,11 +123,16 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
         String[] tokens = message.split("\\.", 3);
         if (tokens.length != 3) return null;
         JwtHeader header = mapper.readValue(base64Decoder.decode(tokens[0]), JwtHeader.class);
-        if (verifySignature(header.alg(), tokens[2], key, tokens[0], tokens[1])) {
-            return decodePayload(/*Payload*/tokens[1], typeReference);
-        } else {
+        if (!verifySignature(header.alg(), tokens[2], key, tokens[0], tokens[1])) {
             return null;
         }
+        @SuppressWarnings("unchecked")
+        Map<String, Object> claims = (Map<String, Object>) mapper.readValue(
+                new String(base64Decoder.decode(tokens[1])), Map.class);
+        if (claims == null || !validateTimeClaims(claims)) {
+            return null;
+        }
+        return decodePayload(tokens[1], typeReference);
     }
 
     public <T> T unsign(String message, byte[] key, Class<T> claimClass) {
