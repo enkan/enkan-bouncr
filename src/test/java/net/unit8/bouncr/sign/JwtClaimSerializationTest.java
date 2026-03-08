@@ -1,5 +1,6 @@
 package net.unit8.bouncr.sign;
 
+import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -211,6 +212,17 @@ public class JwtClaimSerializationTest {
     public void deserializesAmrAsArray() throws Exception {
         JwtClaim claim = mapper.readValue("{\"amr\":[\"pwd\",\"otp\"]}", JwtClaim.class);
         assertThat(claim.getAmr()).containsExactly("pwd", "otp");
+    }
+
+    @Test
+    public void deserializesAmrAsSingleString() throws Exception {
+        // Production mapper (JsonWebToken) enables ACCEPT_SINGLE_VALUE_AS_ARRAY.
+        // Verify that a bare string value is wrapped into a single-element list.
+        JsonMapper productionMapper = JsonMapper.builder()
+                .enable(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
+                .build();
+        JwtClaim claim = productionMapper.readValue("{\"amr\":\"pwd\"}", JwtClaim.class);
+        assertThat(claim.getAmr()).containsExactly("pwd");
     }
 
     // --- updated_at (OIDC Core §5.1): NumericDate as Long ---
