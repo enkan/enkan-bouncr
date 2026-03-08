@@ -114,10 +114,16 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
         byte[] result = new byte[componentLen * 2];
         // Copy r right-aligned into result[0..componentLen), stripping any leading 0x00 padding
         int rSkip = rLen > componentLen ? rLen - componentLen : 0;
+        for (int j = 0; j < rSkip; j++) {
+            if (der[rSrc + j] != 0x00) return null;
+        }
         int rCopy = rLen - rSkip;
         System.arraycopy(der, rSrc + rSkip, result, componentLen - rCopy, rCopy);
         // Copy s right-aligned into result[componentLen..2*componentLen), stripping any leading 0x00 padding
         int sSkip = sLen > componentLen ? sLen - componentLen : 0;
+        for (int j = 0; j < sSkip; j++) {
+            if (der[sSrc + j] != 0x00) return null;
+        }
         int sCopy = sLen - sSkip;
         System.arraycopy(der, sSrc + sSkip, result, componentLen * 2 - sCopy, sCopy);
         return result;
