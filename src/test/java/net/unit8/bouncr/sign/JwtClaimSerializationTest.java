@@ -1,8 +1,6 @@
 package net.unit8.bouncr.sign;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -10,13 +8,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class JwtClaimSerializationTest {
 
-    private ObjectMapper mapper;
+    private JsonMapper mapper;
 
     @BeforeEach
     public void setup() {
-        mapper = new ObjectMapper();
-        mapper.registerModule(new JavaTimeModule());
-        mapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+        mapper = JsonMapper.builder().build();
     }
 
     // --- serialization ---
@@ -173,17 +169,9 @@ public class JwtClaimSerializationTest {
 
     @Test
     public void jwtHeaderEqualsAndHashCode() {
-        JwtHeader h1 = new JwtHeader();
-        h1.setAlg("RS256");
-        h1.setKid("key-1");
-
-        JwtHeader h2 = new JwtHeader();
-        h2.setAlg("RS256");
-        h2.setKid("key-1");
-
-        JwtHeader h3 = new JwtHeader();
-        h3.setAlg("HS256");
-        h3.setKid("key-1");
+        JwtHeader h1 = new JwtHeader("RS256", "key-1");
+        JwtHeader h2 = new JwtHeader("RS256", "key-1");
+        JwtHeader h3 = new JwtHeader("HS256", "key-1");
 
         assertThat(h1).isEqualTo(h2);
         assertThat(h1.hashCode()).isEqualTo(h2.hashCode());
@@ -192,11 +180,8 @@ public class JwtClaimSerializationTest {
 
     @Test
     public void jwtHeaderNullFieldsEquality() {
-        JwtHeader h1 = new JwtHeader();
-        h1.setAlg("RS256");
-
-        JwtHeader h2 = new JwtHeader();
-        h2.setAlg("RS256");
+        JwtHeader h1 = new JwtHeader("RS256", null);
+        JwtHeader h2 = new JwtHeader("RS256", null);
 
         assertThat(h1).isEqualTo(h2);
         assertThat(h1).isNotEqualTo(null);
