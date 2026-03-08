@@ -104,7 +104,7 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
 
     /**
      * Converts a raw R||S ECDSA signature (RFC 7518 §3.4) to DER encoding for BouncyCastle verification.
-     * Returns null if the input is empty, has odd length, or is otherwise malformed.
+     * Returns null if the input is null, empty, or has odd length.
      * Handles DER long-form length encoding for sequences longer than 127 bytes (e.g. ES512/P-521).
      */
     private byte[] p1363ToDer(byte[] p1363) {
