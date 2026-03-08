@@ -17,6 +17,7 @@ import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Map;
@@ -71,7 +72,7 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
     private boolean validateTimeClaims(Map<String, Object> claims) {
         long now = Instant.now().getEpochSecond();
         Object exp = claims.get("exp");
-        if (exp != null && toLong(exp) < now) {
+        if (exp != null && toLong(exp) <= now) {
             return false;
         }
         Object nbf = claims.get("nbf");
@@ -82,10 +83,14 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
     }
 
     private long toLong(Object value) {
-        if (value instanceof Number n) {
-            return n.longValue();
+        try {
+            if (value instanceof Number n) {
+                return n.longValue();
+            }
+            return Long.parseLong(value.toString());
+        } catch (NumberFormatException | ArithmeticException e) {
+            throw new IllegalArgumentException("Non-numeric time claim: " + value, e);
         }
-        return Long.parseLong(value.toString());
     }
 
     private boolean verifySignature(String alg, String signature, byte[] key, String header, String payload) {
@@ -128,11 +133,15 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
         }
         @SuppressWarnings("unchecked")
         Map<String, Object> claims = (Map<String, Object>) mapper.readValue(
-                new String(base64Decoder.decode(tokens[1])), Map.class);
-        if (claims == null || !validateTimeClaims(claims)) {
+                new String(base64Decoder.decode(tokens[1]), StandardCharsets.UTF_8), Map.class);
+        try {
+            if (claims == null || !validateTimeClaims(claims)) {
+                return null;
+            }
+        } catch (IllegalArgumentException e) {
             return null;
         }
-        return decodePayload(tokens[1], typeReference);
+        return mapper.convertValue(claims, typeReference);
     }
 
     public <T> T unsign(String message, byte[] key, Class<T> claimClass) {
