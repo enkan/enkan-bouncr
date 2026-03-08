@@ -3,7 +3,6 @@ package net.unit8.bouncr.sign;
 import tools.jackson.core.type.TypeReference;
 import enkan.exception.MisconfigurationException;
 import enkan.system.EnkanSystem;
-import java.util.HashMap;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -371,12 +370,21 @@ public class JsonWebTokenTest {
         java.lang.reflect.Method m = JsonWebToken.class.getDeclaredMethod("derToP1363", byte[].class, int.class);
         m.setAccessible(true);
 
-        // null input
+        // null input — rejected by null check
         assertThat(m.invoke(jwt, (Object) null, 256)).isNull();
-        // too short
+        // too short overall (< 8 bytes) — rejected by length check
         assertThat(m.invoke(jwt, new byte[]{0x30, 0x05, 0x02}, 256)).isNull();
-        // truncated sequence body (DER says length=5 but only 2 bytes follow)
+        // still too short overall (< 8 bytes)
         assertThat(m.invoke(jwt, new byte[]{0x30, 0x05, 0x02, 0x01, 0x00}, 256)).isNull();
+
+        // plausible SEQUENCE header but rLen declares more bytes than are present
+        // 0x30 SEQUENCE, len=0x08, 0x02 INTEGER, rLen=0x05 (5 bytes), but only 3 bytes of body remain
+        // — pos+rLen+2 check (line 106) triggers: 4+5+2=11 > 9
+        assertThat(m.invoke(jwt, new byte[]{0x30, 0x08, 0x02, 0x05, 0x01, 0x02, 0x03, 0x02, 0x01}, 256)).isNull();
+
+        // long-form length encoding overruns: 0x81 signals 1-byte length, declared 0x10 (16), only 5 bytes follow
+        // — pos+lenLen check (line 100) triggers: 2+1=3 ... then pos+lenLen skips to where data runs out
+        assertThat(m.invoke(jwt, new byte[]{0x30, (byte) 0x81, 0x10, 0x02, 0x01, 0x01, 0x02, 0x01}, 256)).isNull();
     }
 
     // --- security hardening: malformed JWT header ---

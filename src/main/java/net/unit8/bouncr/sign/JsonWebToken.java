@@ -107,7 +107,6 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
         byte[] r = java.util.Arrays.copyOfRange(der, pos, pos + rLen);
         pos += rLen;
         pos++; // skip INTEGER tag for s
-        if (pos >= der.length) return null;
         int sLen = der[pos++] & 0xff;
         if (pos + sLen > der.length) return null;
         byte[] s = java.util.Arrays.copyOfRange(der, pos, pos + sLen);
