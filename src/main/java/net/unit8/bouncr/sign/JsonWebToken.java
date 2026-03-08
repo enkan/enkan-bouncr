@@ -112,14 +112,14 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
                 SecretKeySpec keySpec = new SecretKeySpec(key, signAlgorithm);
                 Mac mac = Mac.getInstance(signAlgorithm, "BC");
                 mac.init(keySpec);
-                mac.update(String.join(".", header, payload).getBytes());
+                mac.update(String.join(".", header, payload).getBytes(StandardCharsets.US_ASCII));
                 return Objects.equals(signature, base64Encoder.encodeToString(mac.doFinal()));
             } else {
                 Signature verifier = Signature.getInstance(signAlgorithm, "BC");
                 KeyFactory kf = KeyFactory.getInstance("RSA");
                 PublicKey publicKey = kf.generatePublic(new X509EncodedKeySpec(key));
                 verifier.initVerify(publicKey);
-                verifier.update(String.join(".", header, payload).getBytes());
+                verifier.update(String.join(".", header, payload).getBytes(StandardCharsets.US_ASCII));
                 return verifier.verify(base64Decoder.decode(signature));
             }
         } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
@@ -185,14 +185,14 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
                 SecretKeySpec keySpec = new SecretKeySpec(key, signAlgorithm);
                 Mac mac = Mac.getInstance(signAlgorithm);
                 mac.init(keySpec);
-                mac.update(String.join(".", encodedHeader, payload).getBytes());
+                mac.update(String.join(".", encodedHeader, payload).getBytes(StandardCharsets.US_ASCII));
                 encodedSignature = base64Encoder.encodeToString(mac.doFinal());
             } else {
                 Signature signature = Signature.getInstance(signAlgorithm, "BC");
                 KeyFactory kf = KeyFactory.getInstance("RSA");
                 PrivateKey privateKey = kf.generatePrivate(new PKCS8EncodedKeySpec(key));
                 signature.initSign(privateKey, prng);
-                signature.update(String.join(".", encodedHeader, payload).getBytes());
+                signature.update(String.join(".", encodedHeader, payload).getBytes(StandardCharsets.US_ASCII));
                 encodedSignature = base64Encoder.encodeToString(signature.sign());
             }
             return String.join(".", encodedHeader, payload, encodedSignature);
