@@ -382,8 +382,8 @@ public class JsonWebTokenTest {
         // — pos+rLen+2 check (line 106) triggers: 4+5+2=11 > 9
         assertThat(m.invoke(jwt, new byte[]{0x30, 0x08, 0x02, 0x05, 0x01, 0x02, 0x03, 0x02, 0x01}, 256)).isNull();
 
-        // long-form length encoding overruns: 0x81 signals 1-byte length, declared 0x10 (16), only 5 bytes follow
-        // — pos+lenLen check (line 100) triggers: 2+1=3 ... then pos+lenLen skips to where data runs out
+        // long-form length encoding: 0x81 signals 1-byte length (skipped), r=0x01, s declared 0x01 but no byte follows
+        // — sLen bounds check triggers after parsing the long-form length and r: pos+sLen = 8+1 > 8
         assertThat(m.invoke(jwt, new byte[]{0x30, (byte) 0x81, 0x10, 0x02, 0x01, 0x01, 0x02, 0x01}, 256)).isNull();
     }
 
