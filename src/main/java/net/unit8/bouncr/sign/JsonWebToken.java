@@ -244,6 +244,7 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
             public void start(JsonWebToken component) {
                 component.mapper = JsonMapper.builder()
                         .enable(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS)
+                        .enable(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
                         .disable(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES)
                         .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
                         .build();

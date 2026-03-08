@@ -4,6 +4,8 @@ import tools.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class JwtClaimSerializationTest {
@@ -163,6 +165,68 @@ public class JwtClaimSerializationTest {
         String json = "{\"sub\":\"kawasima\",\"unknown_future_claim\":\"value\"}";
         JwtClaim claim = mapper.readValue(json, JwtClaim.class);
         assertThat(claim.getSub()).isEqualTo("kawasima");
+    }
+
+    // --- aud (RFC 7519 §4.1.3): single string or array ---
+
+    @Test
+    public void serializesAudAsString() throws Exception {
+        JwtClaim claim = new JwtClaim();
+        claim.setAud("myapp");
+        String json = mapper.writeValueAsString(claim);
+        assertThat(json).contains("\"aud\":\"myapp\"");
+    }
+
+    @Test
+    public void serializesAudAsArray() throws Exception {
+        JwtClaim claim = new JwtClaim();
+        claim.setAud(List.of("app1", "app2"));
+        String json = mapper.writeValueAsString(claim);
+        assertThat(json).contains("\"aud\":[\"app1\",\"app2\"]");
+    }
+
+    @Test
+    public void deserializesAudAsString() throws Exception {
+        JwtClaim claim = mapper.readValue("{\"aud\":\"myapp\"}", JwtClaim.class);
+        assertThat(claim.getAud()).isEqualTo("myapp");
+    }
+
+    @Test
+    public void deserializesAudAsArray() throws Exception {
+        JwtClaim claim = mapper.readValue("{\"aud\":[\"app1\",\"app2\"]}", JwtClaim.class);
+        assertThat(claim.getAud()).isInstanceOf(List.class);
+    }
+
+    // --- amr (OIDC Core §2): array of strings, accepts single string ---
+
+    @Test
+    public void serializesAmrAsArray() throws Exception {
+        JwtClaim claim = new JwtClaim();
+        claim.setAmr(List.of("pwd", "otp"));
+        String json = mapper.writeValueAsString(claim);
+        assertThat(json).contains("\"amr\":[\"pwd\",\"otp\"]");
+    }
+
+    @Test
+    public void deserializesAmrAsArray() throws Exception {
+        JwtClaim claim = mapper.readValue("{\"amr\":[\"pwd\",\"otp\"]}", JwtClaim.class);
+        assertThat(claim.getAmr()).containsExactly("pwd", "otp");
+    }
+
+    // --- updated_at (OIDC Core §5.1): NumericDate as Long ---
+
+    @Test
+    public void serializesUpdatedAtAsNumber() throws Exception {
+        JwtClaim claim = new JwtClaim();
+        claim.setUpdatedAt(1700000000L);
+        String json = mapper.writeValueAsString(claim);
+        assertThat(json).contains("\"updated_at\":1700000000");
+    }
+
+    @Test
+    public void deserializesUpdatedAtAsNumber() throws Exception {
+        JwtClaim claim = mapper.readValue("{\"updated_at\":1700000000}", JwtClaim.class);
+        assertThat(claim.getUpdatedAt()).isEqualTo(1700000000L);
     }
 
     // --- JwtHeader equals/hashCode ---
