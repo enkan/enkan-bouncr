@@ -84,12 +84,10 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
 
     private long toLong(Object value) {
         try {
-            if (value instanceof Number n) {
-                return n.longValue();
-            }
-            return Long.parseLong(value.toString());
+            java.math.BigDecimal bd = new java.math.BigDecimal(value.toString());
+            return bd.longValueExact();
         } catch (NumberFormatException | ArithmeticException e) {
-            throw new IllegalArgumentException("Non-numeric time claim: " + value, e);
+            throw new IllegalArgumentException("Non-numeric or non-integer time claim: " + value, e);
         }
     }
 

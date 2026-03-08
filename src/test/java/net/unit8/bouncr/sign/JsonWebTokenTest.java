@@ -224,6 +224,41 @@ public class JsonWebTokenTest {
                 .containsEntry("sub", "user");
     }
 
+    @Test
+    public void expEqualNowIsRejected() {
+        byte[] key = "secret".getBytes(StandardCharsets.UTF_8);
+        long nowEpoch = Instant.now().getEpochSecond();
+        Map<String, Object> claims = Map.of("sub", "user", "exp", nowEpoch);
+        String token = sign(claims, "HS256", key);
+        assertThat(jwt.unsign(token, key, new TypeReference<Map<String, Object>>() {})).isNull();
+    }
+
+    @Test
+    public void nbfEqualNowIsAccepted() {
+        byte[] key = "secret".getBytes(StandardCharsets.UTF_8);
+        long nowEpoch = Instant.now().getEpochSecond();
+        Map<String, Object> claims = Map.of("sub", "user", "nbf", nowEpoch);
+        String token = sign(claims, "HS256", key);
+        assertThat(jwt.unsign(token, key, new TypeReference<Map<String, Object>>() {}))
+                .containsEntry("sub", "user");
+    }
+
+    @Test
+    public void nonNumericExpReturnsNull() {
+        byte[] key = "secret".getBytes(StandardCharsets.UTF_8);
+        Map<String, Object> claims = Map.of("sub", "user", "exp", "not-a-number");
+        String token = sign(claims, "HS256", key);
+        assertThat(jwt.unsign(token, key, new TypeReference<Map<String, Object>>() {})).isNull();
+    }
+
+    @Test
+    public void nonNumericNbfReturnsNull() {
+        byte[] key = "secret".getBytes(StandardCharsets.UTF_8);
+        Map<String, Object> claims = Map.of("sub", "user", "nbf", "not-a-number");
+        String token = sign(claims, "HS256", key);
+        assertThat(jwt.unsign(token, key, new TypeReference<Map<String, Object>>() {})).isNull();
+    }
+
     // --- malformed token edge cases ---
 
     @Test
