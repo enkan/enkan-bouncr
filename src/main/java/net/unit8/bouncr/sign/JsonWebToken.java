@@ -217,7 +217,12 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
                 verifier.initVerify(publicKey);
                 verifier.update(String.join(".", header, payload).getBytes(StandardCharsets.US_ASCII));
                 // Convert JWS raw R||S to DER for BouncyCastle verification (RFC 7518 §3.4)
-                byte[] sigBytes = base64Decoder.decode(signature);
+                byte[] sigBytes;
+                try {
+                    sigBytes = base64Decoder.decode(signature);
+                } catch (IllegalArgumentException e) {
+                    return false;
+                }
                 if (isEcdsa) {
                     // Validate RFC 7518 §3.4 P1363 length before conversion
                     int expectedLen = alg.equals("ES256") ? 64 : alg.equals("ES384") ? 96 : alg.equals("ES512") ? 132 : -1;
@@ -311,6 +316,14 @@ public class JsonWebToken extends SystemComponent<JsonWebToken> {
                 if (isEcdsa) {
                     // Derive key length from the actual EC key to avoid alg/key mismatch
                     int keyBits = ((ECKey) privateKey).getParams().getOrder().bitLength();
+                    // Validate that the key curve matches the declared JWA algorithm
+                    int expectedKeyBits = header.alg().equals("ES256") ? 256
+                            : header.alg().equals("ES384") ? 384
+                            : header.alg().equals("ES512") ? 521 : -1;
+                    if (expectedKeyBits > 0 && keyBits != expectedKeyBits) {
+                        throw new MisconfigurationException("bouncr.ECDSA_KEY_ALG_MISMATCH",
+                                "EC key curve (" + keyBits + " bits) does not match algorithm " + header.alg());
+                    }
                     rawSig = derToP1363(rawSig, keyBits);
                 }
                 encodedSignature = base64Encoder.encodeToString(rawSig);
