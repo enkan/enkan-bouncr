@@ -169,9 +169,9 @@ public class JwtClaimSerializationTest {
 
     @Test
     public void jwtHeaderEqualsAndHashCode() {
-        JwtHeader h1 = new JwtHeader("RS256", "key-1");
-        JwtHeader h2 = new JwtHeader("RS256", "key-1");
-        JwtHeader h3 = new JwtHeader("HS256", "key-1");
+        JwtHeader h1 = new JwtHeader(null, "RS256", "key-1");
+        JwtHeader h2 = new JwtHeader(null, "RS256", "key-1");
+        JwtHeader h3 = new JwtHeader(null, "HS256", "key-1");
 
         assertThat(h1).isEqualTo(h2);
         assertThat(h1.hashCode()).isEqualTo(h2.hashCode());
@@ -180,8 +180,8 @@ public class JwtClaimSerializationTest {
 
     @Test
     public void jwtHeaderNullFieldsEquality() {
-        JwtHeader h1 = new JwtHeader("RS256", null);
-        JwtHeader h2 = new JwtHeader("RS256", null);
+        JwtHeader h1 = new JwtHeader(null, "RS256", null);
+        JwtHeader h2 = new JwtHeader(null, "RS256", null);
 
         assertThat(h1).isEqualTo(h2);
         assertThat(h1).isNotEqualTo(null);

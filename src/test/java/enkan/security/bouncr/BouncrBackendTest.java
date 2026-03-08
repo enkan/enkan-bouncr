@@ -63,11 +63,11 @@ public class BouncrBackendTest {
     }
 
     private String signHmac(Map<String, Object> claims, byte[] key) {
-        return jwt.sign(claims, new JwtHeader("HS256", null), key);
+        return jwt.sign(claims, new JwtHeader(null, "HS256", null), key);
     }
 
     private String signRsa(Map<String, Object> claims, PrivateKey key) {
-        return jwt.sign(claims, new JwtHeader("RS256", null), key);
+        return jwt.sign(claims, new JwtHeader(null, "RS256", null), key);
     }
 
     // --- parse() ---
