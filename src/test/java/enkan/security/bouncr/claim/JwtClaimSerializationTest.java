@@ -1,4 +1,4 @@
-package net.unit8.bouncr.sign;
+package enkan.security.bouncr.claim;
 
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
@@ -216,8 +216,8 @@ public class JwtClaimSerializationTest {
 
     @Test
     public void deserializesAmrAsSingleString() throws Exception {
-        // Production mapper (JsonWebToken) enables ACCEPT_SINGLE_VALUE_AS_ARRAY.
-        // Verify that a bare string value is wrapped into a single-element list.
+        // Mirror the production deserialization path by enabling
+        // ACCEPT_SINGLE_VALUE_AS_ARRAY so a bare string is wrapped into a single-element list.
         JsonMapper productionMapper = JsonMapper.builder()
                 .enable(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
                 .build();
