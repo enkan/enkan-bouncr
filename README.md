@@ -12,7 +12,7 @@ JWT signing and verification are provided by `enkan.web.jwt.JwtProcessor` from e
 
 ## Requirements
 
-- Java 21+
+- Java 25+
 - enkan 0.15.0+
 
 ## Quick start

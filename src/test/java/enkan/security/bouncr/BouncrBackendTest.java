@@ -206,6 +206,50 @@ public class BouncrBackendTest {
         assertThat(principal.getProfiles()).doesNotContainKeys("uid", "sub", "permissions");
     }
 
+    // --- time claim enforcement ---
+
+    @Test
+    public void parseReturnsNullForExpiredToken() throws Exception {
+        byte[] key = "my-hmac-secret".getBytes(StandardCharsets.UTF_8);
+        long pastEpoch = System.currentTimeMillis() / 1000 - 3600; // 1 hour ago
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("sub", "kawasima");
+        claims.put("uid", 7);
+        claims.put("exp", pastEpoch);
+        String token = signHmac(claims, key);
+
+        BouncrBackend backend = backendWithKey(key);
+        assertThat(backend.parse(requestWithCredential(token))).isNull();
+    }
+
+    @Test
+    public void parseReturnsNullForNotYetValidToken() throws Exception {
+        byte[] key = "my-hmac-secret".getBytes(StandardCharsets.UTF_8);
+        long futureEpoch = System.currentTimeMillis() / 1000 + 3600; // 1 hour from now
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("sub", "kawasima");
+        claims.put("uid", 7);
+        claims.put("nbf", futureEpoch);
+        String token = signHmac(claims, key);
+
+        BouncrBackend backend = backendWithKey(key);
+        assertThat(backend.parse(requestWithCredential(token))).isNull();
+    }
+
+    @Test
+    public void parseAcceptsTokenWithFutureExp() throws Exception {
+        byte[] key = "my-hmac-secret".getBytes(StandardCharsets.UTF_8);
+        long futureEpoch = System.currentTimeMillis() / 1000 + 3600; // 1 hour from now
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("sub", "kawasima");
+        claims.put("uid", 7);
+        claims.put("exp", futureEpoch);
+        String token = signHmac(claims, key);
+
+        BouncrBackend backend = backendWithKey(key);
+        assertThat(backend.parse(requestWithCredential(token))).isNotNull();
+    }
+
     // --- alg/key family mismatch ---
 
     @Test
@@ -230,6 +274,76 @@ public class BouncrBackendTest {
 
         BouncrBackend backend = backendWithKey("hmac-secret".getBytes(StandardCharsets.UTF_8));
         assertThatThrownBy(() -> backend.parse(requestWithCredential(rsaToken)))
+                .isInstanceOf(MisconfigurationException.class);
+    }
+
+    // --- alg:none rejection ---
+
+    /**
+     * Creates a JWT with {@code alg:none} header and an unsigned (empty) signature part.
+     * The token is crafted manually because signing APIs reject alg:none.
+     */
+    private String createAlgNoneToken(Map<String, Object> claims) throws Exception {
+        String header = java.util.Base64.getUrlEncoder().withoutPadding()
+                .encodeToString("{\"alg\":\"none\"}".getBytes(StandardCharsets.UTF_8));
+        String payload = java.util.Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(objectMapper.writeValueAsBytes(claims));
+        return header + "." + payload + ".";
+    }
+
+    private String createAlgNoneTokenWithHeader(String headerJson, Map<String, Object> claims) throws Exception {
+        String header = java.util.Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(headerJson.getBytes(StandardCharsets.UTF_8));
+        String payload = java.util.Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(objectMapper.writeValueAsBytes(claims));
+        return header + "." + payload + ".";
+    }
+
+    @Test
+    public void parseThrowsWhenAlgNoneTokenSentToHmacBackend() throws Exception {
+        byte[] key = "hmac-secret".getBytes(StandardCharsets.UTF_8);
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("sub", "attacker");
+        String noneToken = createAlgNoneToken(claims);
+
+        BouncrBackend backend = backendWithKey(key);
+        assertThatThrownBy(() -> backend.parse(requestWithCredential(noneToken)))
+                .isInstanceOf(MisconfigurationException.class);
+    }
+
+    @Test
+    public void parseThrowsWhenAlgNoneTokenSentToAsymmetricBackend() throws Exception {
+        KeyPair keyPair = generateKeyPair();
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("sub", "attacker");
+        String noneToken = createAlgNoneToken(claims);
+
+        BouncrBackend backend = backendWithPublicKey(keyPair.getPublic());
+        assertThatThrownBy(() -> backend.parse(requestWithCredential(noneToken)))
+                .isInstanceOf(MisconfigurationException.class);
+    }
+
+    @Test
+    public void parseThrowsForCaseVariantAlgNoneOnAsymmetricBackend() throws Exception {
+        KeyPair keyPair = generateKeyPair();
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("sub", "attacker");
+        String noneToken = createAlgNoneTokenWithHeader("{\"alg\":\"NONE\"}", claims);
+
+        BouncrBackend backend = backendWithPublicKey(keyPair.getPublic());
+        assertThatThrownBy(() -> backend.parse(requestWithCredential(noneToken)))
+                .isInstanceOf(MisconfigurationException.class);
+    }
+
+    @Test
+    public void parseThrowsForMixedCaseAlgNoneOnHmacBackend() throws Exception {
+        byte[] key = "hmac-secret".getBytes(StandardCharsets.UTF_8);
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("sub", "attacker");
+        String noneToken = createAlgNoneTokenWithHeader("{\"alg\":\"None\"}", claims);
+
+        BouncrBackend backend = backendWithKey(key);
+        assertThatThrownBy(() -> backend.parse(requestWithCredential(noneToken)))
                 .isInstanceOf(MisconfigurationException.class);
     }
 
