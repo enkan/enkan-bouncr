@@ -241,25 +241,4 @@ public class JwtClaimSerializationTest {
         assertThat(claim.getUpdatedAt()).isEqualTo(1700000000L);
     }
 
-    // --- JwtHeader equals/hashCode ---
-
-    @Test
-    public void jwtHeaderEqualsAndHashCode() {
-        JwtHeader h1 = new JwtHeader(null, "RS256", "key-1");
-        JwtHeader h2 = new JwtHeader(null, "RS256", "key-1");
-        JwtHeader h3 = new JwtHeader(null, "HS256", "key-1");
-
-        assertThat(h1).isEqualTo(h2);
-        assertThat(h1.hashCode()).isEqualTo(h2.hashCode());
-        assertThat(h1).isNotEqualTo(h3);
-    }
-
-    @Test
-    public void jwtHeaderNullFieldsEquality() {
-        JwtHeader h1 = new JwtHeader(null, "RS256", null);
-        JwtHeader h2 = new JwtHeader(null, "RS256", null);
-
-        assertThat(h1).isEqualTo(h2);
-        assertThat(h1).isNotEqualTo(null);
-    }
 }

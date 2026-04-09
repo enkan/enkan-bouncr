@@ -1,17 +1,15 @@
 package enkan.security.bouncr;
 
-import enkan.collection.Headers;
-import enkan.data.DefaultHttpRequest;
-import enkan.data.HttpRequest;
+import enkan.web.collection.Headers;
+import enkan.web.data.DefaultHttpRequest;
+import enkan.web.data.HttpRequest;
+import enkan.web.jwt.JwtHeader;
+import enkan.web.jwt.JwtProcessor;
 import enkan.exception.MisconfigurationException;
-import enkan.system.EnkanSystem;
-import net.unit8.bouncr.sign.JsonWebToken;
-import net.unit8.bouncr.sign.JwtHeader;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
 
+import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.util.HashMap;
@@ -23,26 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class BouncrBackendTest {
 
-    static {
-        if (Security.getProvider("BC") == null) {
-            Security.addProvider(new BouncyCastleProvider());
-        }
-    }
-
-    private EnkanSystem system;
-    private JsonWebToken jwt;
-
-    @BeforeEach
-    public void setup() {
-        system = EnkanSystem.of("jwt", new JsonWebToken());
-        system.start();
-        jwt = system.getComponent("jwt");
-    }
-
-    @AfterEach
-    public void teardown() {
-        system.stop();
-    }
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private KeyPair generateKeyPair() throws NoSuchAlgorithmException {
         KeyPairGenerator gen = KeyPairGenerator.getInstance("RSA");
@@ -62,26 +41,26 @@ public class BouncrBackendTest {
         return req;
     }
 
-    private String signHmac(Map<String, Object> claims, byte[] key) {
-        return jwt.sign(claims, new JwtHeader(null, "HS256", null), key);
+    private String signHmac(Map<String, Object> claims, byte[] key) throws Exception {
+        byte[] json = objectMapper.writeValueAsBytes(claims);
+        return JwtProcessor.sign(new JwtHeader("HS256"), json, new SecretKeySpec(key, "HmacSHA256"));
     }
 
-    private String signRsa(Map<String, Object> claims, PrivateKey key) {
-        return jwt.sign(claims, new JwtHeader(null, "RS256", null), key);
+    private String signRsa(Map<String, Object> claims, PrivateKey key) throws Exception {
+        byte[] json = objectMapper.writeValueAsBytes(claims);
+        return JwtProcessor.sign(new JwtHeader("RS256"), json, key);
     }
 
     // --- parse() ---
 
     private BouncrBackend backendWithKey(byte[] key) {
         BouncrBackend backend = new BouncrBackend();
-        backend.setJwt(jwt);
         backend.setKey(key);
         return backend;
     }
 
     private BouncrBackend backendWithPublicKey(java.security.PublicKey publicKey) {
         BouncrBackend backend = new BouncrBackend();
-        backend.setJwt(jwt);
         backend.setPublicKey(publicKey);
         return backend;
     }
@@ -93,7 +72,7 @@ public class BouncrBackendTest {
     }
 
     @Test
-    public void parseHmacToken() {
+    public void parseHmacToken() throws Exception {
         byte[] key = "my-hmac-secret".getBytes(StandardCharsets.UTF_8);
         Map<String, Object> claims = new HashMap<>();
         claims.put("sub", "kawasima");
@@ -119,7 +98,7 @@ public class BouncrBackendTest {
     }
 
     @Test
-    public void parseReturnsNullForWrongSignature() {
+    public void parseReturnsNullForWrongSignature() throws Exception {
         byte[] key = "correct-key".getBytes(StandardCharsets.UTF_8);
         byte[] wrongKey = "wrong-key-xx".getBytes(StandardCharsets.UTF_8);
         Map<String, Object> claims = new HashMap<>();
@@ -134,7 +113,6 @@ public class BouncrBackendTest {
     public void parseThrowsWhenBothKeysConfigured() throws Exception {
         KeyPair keyPair = generateKeyPair();
         BouncrBackend backend = new BouncrBackend();
-        backend.setJwt(jwt);
         backend.setPublicKey(keyPair.getPublic());
         backend.setKey("secret".getBytes(StandardCharsets.UTF_8));
 
@@ -147,17 +125,6 @@ public class BouncrBackendTest {
     @Test
     public void parseThrowsWhenNoKeyConfigured() {
         BouncrBackend backend = new BouncrBackend();
-        backend.setJwt(jwt);
-        assertThatThrownBy(() -> backend.parse(requestWithoutCredential()))
-                .isInstanceOf(MisconfigurationException.class);
-    }
-
-    // --- guard: jwt not injected ---
-
-    @Test
-    public void parseThrowsWhenJwtNotInjected() {
-        BouncrBackend backend = new BouncrBackend();
-        backend.setKey("secret".getBytes(StandardCharsets.UTF_8));
         assertThatThrownBy(() -> backend.parse(requestWithoutCredential()))
                 .isInstanceOf(MisconfigurationException.class);
     }
@@ -269,7 +236,7 @@ public class BouncrBackendTest {
     // --- full flow ---
 
     @Test
-    public void fullHmacFlow() {
+    public void fullHmacFlow() throws Exception {
         byte[] key = "integration-test-key".getBytes(StandardCharsets.UTF_8);
         Map<String, Object> claims = new HashMap<>();
         claims.put("uid", 99);

@@ -6,13 +6,13 @@
     <parent>
         <groupId>net.unit8.enkan</groupId>
         <artifactId>enkan-parent</artifactId>
-        <version>0.13.1-SNAPSHOT</version>
+        <version>0.15.0</version>
     </parent>
 
     <artifactId>enkan-bouncr</artifactId>
     <packaging>jar</packaging>
     <name>enkan-bouncr</name>
-    <version>0.13.0</version>
+    <version>0.15.0</version>
     <description>Enkan library for Bouncr</description>
     <url>http://github.com/enkan/enkan-bouncr</url>
 
@@ -49,17 +49,6 @@
             <artifactId>jackson-databind</artifactId>
             <version>${jackson.version}</version>
         </dependency>
-        <dependency>
-            <groupId>org.bouncycastle</groupId>
-            <artifactId>bcprov-jdk18on</artifactId>
-            <version>1.83</version>
-        </dependency>
-        <dependency>
-            <groupId>org.bouncycastle</groupId>
-            <artifactId>bcpkix-jdk18on</artifactId>
-            <version>1.83</version>
-        </dependency>
-
         <dependency>
             <groupId>jakarta.annotation</groupId>
             <artifactId>jakarta.annotation-api</artifactId>

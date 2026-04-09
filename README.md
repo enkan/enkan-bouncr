@@ -4,36 +4,28 @@ JWT-based authentication and authorization components for the [Enkan](https://gi
 
 ## Features
 
-- **`JsonWebToken`** — sign and verify JWTs with HMAC (HS256/HS384/HS512), RSA/PSS (RS256/RS384/RS512, PS256/PS384/PS512), and ECDSA (ES256/ES384/ES512)
 - **`BouncrBackend`** — Enkan `AuthBackend` that verifies a JWT from the `x-bouncr-credential` request header and produces a `UserPermissionPrincipal`
 - **`AuthorizeControllerMethodMiddleware`** — enforces `@RolesAllowed` annotations on controller methods
 - **`JwtClaim` / `ClaimAddress`** — typed beans for OIDC ID Token claims (RFC 7519 / OIDC Core)
 
+JWT signing and verification are provided by `enkan.web.jwt.JwtProcessor` from enkan 0.15+.
+
 ## Requirements
 
 - Java 21+
-- BouncyCastle (`bcprov-jdk18on`, `bcpkix-jdk18on`) on the classpath for RSA/ECDSA operations
+- enkan 0.15.0+
 
 ## Quick start
 
-### 1. Register components
+### 1. Configure BouncrBackend
 
 ```java
-EnkanSystem system = EnkanSystem.of(
-    "jwt", new JsonWebToken(),
-    "backend", new BouncrBackend()
-);
-((BouncrBackend) system.getComponent("backend")).setJwt(
-    (JsonWebToken) system.getComponent("jwt"));
-system.start();
+BouncrBackend backend = new BouncrBackend();
 ```
-
-### 2. Configure a verification key
 
 #### HMAC (symmetric)
 
 ```java
-BouncrBackend backend = system.getComponent("backend");
 backend.setKey("your-shared-secret");   // String overload (UTF-8)
 // or
 backend.setKey(secretBytes);            // byte[] overload
@@ -47,34 +39,40 @@ backend.setPublicKey(publicKey);        // java.security.PublicKey
 
 > Only one of `key` or `publicKey` may be set. Configuring both throws `MisconfigurationException`.
 
-### 3. Sign a token
+### 2. Sign a token (issuer side)
+
+Use `JwtProcessor` from enkan-web to create tokens:
 
 ```java
-JsonWebToken jwt = system.getComponent("jwt");
+import enkan.web.jwt.JwtHeader;
+import enkan.web.jwt.JwtProcessor;
+import javax.crypto.spec.SecretKeySpec;
+
+ObjectMapper mapper = new ObjectMapper();
 
 // HMAC
 byte[] secret = "my-secret".getBytes(StandardCharsets.UTF_8);
-String token = jwt.sign(
-    Map.of("sub", "alice", "permissions", List.of("read", "write")),
-    new JwtHeader("JWT", "HS256", null),
-    secret
-);
+byte[] claimsJson = mapper.writeValueAsBytes(
+    Map.of("sub", "alice", "uid", 1, "permissions", List.of("read", "write")));
+String token = JwtProcessor.sign(new JwtHeader("HS256"), claimsJson,
+    new SecretKeySpec(secret, "HmacSHA256"));
 
-// RSA / ECDSA
-String rsaToken = jwt.sign(claims, new JwtHeader("JWT", "RS256", null), privateKey);
+// RSA
+byte[] claimsJson = mapper.writeValueAsBytes(claims);
+String rsaToken = JwtProcessor.sign(new JwtHeader("RS256"), claimsJson, privateKey);
 ```
 
-### 4. Verify / parse a token
+### 3. Verify a token (BouncrBackend)
+
+`BouncrBackend` verifies tokens automatically when used as an Enkan `AuthBackend`. On success it returns a `UserPermissionPrincipal` populated from the `uid`, `sub`, and `permissions` claims.
 
 ```java
-// symmetric
-Map<String, Object> claims = jwt.unsign(token, secret, new TypeReference<>() {});
+// Manual verification (without Enkan middleware stack):
+import enkan.web.jwt.JwtProcessor;
 
-// asymmetric
-Map<String, Object> claims = jwt.unsign(token, publicKey, new TypeReference<>() {});
+byte[] payload = JwtProcessor.verify(token, publicKey);
+// payload is null on failure; otherwise raw JSON bytes of the claims
 ```
-
-`unsign()` returns `null` when the signature is invalid, the token is expired, or `nbf` is not yet satisfied.
 
 ## Supported algorithms
 
@@ -92,24 +90,21 @@ Map<String, Object> claims = jwt.unsign(token, publicKey, new TypeReference<>() 
 | ES256  | ECDSA P-256 with SHA-256           |
 | ES384  | ECDSA P-384 with SHA-384           |
 | ES512  | ECDSA P-521 with SHA-512           |
+| EdDSA  | Ed25519                            |
 
-`alg: none` is explicitly rejected with a `MisconfigurationException`.
+`alg: none` is explicitly rejected.
 
 ## Security notes
 
-- HMAC signatures are verified with `MessageDigest.isEqual` (constant-time comparison).
-- `BouncrBackend` validates the JWT `alg` header family against the configured key type before calling `unsign()`, preventing algorithm-confusion attacks.
-- DER-encoded ECDSA signatures from BouncyCastle are converted to/from RFC 7518 §3.4 raw R||S format; malformed DER inputs return `null` rather than throwing.
+- HMAC signatures are verified with `MessageDigest.isEqual` (constant-time comparison) inside `JwtProcessor`.
+- `BouncrBackend` validates the JWT `alg` header family against the configured key type before verification, preventing algorithm-confusion attacks.
+- No BouncyCastle dependency is required; standard JCA providers are used for all algorithms.
 
 ## Building
 
 ```bash
 mvn clean test
 ```
-
-BouncyCastle is pulled in automatically via Maven. Production code must call
-`Security.addProvider(new BouncyCastleProvider())` before the first sign/verify call
-when using RSA or ECDSA algorithms.
 
 ## License
 
