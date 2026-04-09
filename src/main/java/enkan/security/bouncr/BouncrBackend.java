@@ -26,8 +26,9 @@ import static enkan.util.ThreadingUtils.some;
  *   <li>{@link #setPublicKey(PublicKey)} — RSA or EC public key (RS/PS/ES family algorithms)</li>
  * </ul>
  *
- * <p>On successful verification, {@link #authenticate} returns a {@link UserPermissionPrincipal}
- * populated from the {@code uid}, {@code sub}, and {@code permissions} claims.
+ * <p>On successful verification by {@link #parse}, {@link #authenticate} returns a
+ * {@link UserPermissionPrincipal} populated from the {@code uid}, {@code sub}, and
+ * {@code permissions} claims.
  */
 public class BouncrBackend implements AuthBackend<HttpRequest, Map<String, Object>> {
     private PublicKey publicKey;
@@ -59,6 +60,17 @@ public class BouncrBackend implements AuthBackend<HttpRequest, Map<String, Objec
                 .orElse(null);
     }
 
+    /**
+     * Constructs a {@link UserPermissionPrincipal} from the parsed JWT claims.
+     *
+     * <p><b>Note:</b> This method removes the {@code uid}, {@code sub}, and {@code permissions}
+     * keys from {@code authenticationData}. The remaining entries become the principal's
+     * profile map. Callers must not reuse the map after this call.
+     *
+     * @param request            the incoming HTTP request (not used directly)
+     * @param authenticationData the claims map returned by {@link #parse}; modified in place
+     * @return a {@link UserPermissionPrincipal}, or {@code null} if {@code authenticationData} is null
+     */
     @SuppressWarnings("unchecked")
     @Override
     public Principal authenticate(HttpRequest request, Map<String, Object> authenticationData) {
@@ -89,6 +101,11 @@ public class BouncrBackend implements AuthBackend<HttpRequest, Map<String, Objec
     private void validateAlgFamilyOrThrow(String token) {
         JwtHeader header = JwtProcessor.decodeHeader(token);
         if (header == null || header.alg() == null) return;
+        // Defence-in-depth: reject alg:none explicitly at this layer, independent of
+        // any downstream library behaviour. Case-insensitive to block crafted variants.
+        if ("none".equalsIgnoreCase(header.alg())) {
+            throw new enkan.exception.MisconfigurationException("bouncr.ALG_NONE_NOT_ALLOWED");
+        }
         boolean isHmac = header.alg().startsWith("HS");
         if (publicKey != null && isHmac) {
             throw new enkan.exception.MisconfigurationException("bouncr.ALG_KEY_FAMILY_MISMATCH");
