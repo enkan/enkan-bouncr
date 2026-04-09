@@ -45,14 +45,16 @@ public class BouncrBackend implements AuthBackend<HttpRequest, Map<String, Objec
         }
         return some(request.getHeaders().get("x-bouncr-credential"),
                 cred -> {
-                    validateAlgFamilyOrThrow(cred);
+                    JwtHeader header = JwtProcessor.decodeHeader(cred);
+                    validateAlgFamilyOrThrow(header);
                     byte[] payload;
                     if (publicKey != null) {
                         payload = JwtProcessor.verify(cred, publicKey);
                     } else {
-                        // SecretKeySpec algorithm name is for documentation only; JcaVerifier
-                        // determines the actual MAC algorithm from the JWT header alg field.
-                        payload = JwtProcessor.verify(cred, new SecretKeySpec(key, "HmacSHA256"));
+                        // Align the SecretKeySpec algorithm with the declared JWT alg so strict
+                        // JCA providers that validate key.getAlgorithm() against the Mac algorithm
+                        // accept the key for HS384/HS512 as well as HS256.
+                        payload = JwtProcessor.verify(cred, new SecretKeySpec(key, hmacJcaName(header)));
                     }
                     if (payload == null) return null;
                     return objectMapper.readValue(payload, new TypeReference<Map<String, Object>>() {});
@@ -71,7 +73,6 @@ public class BouncrBackend implements AuthBackend<HttpRequest, Map<String, Objec
      * @param authenticationData the claims map returned by {@link #parse}; modified in place
      * @return a {@link UserPermissionPrincipal}, or {@code null} if {@code authenticationData} is null
      */
-    @SuppressWarnings("unchecked")
     @Override
     public Principal authenticate(HttpRequest request, Map<String, Object> authenticationData) {
         if (authenticationData == null) return null;
@@ -80,16 +81,29 @@ public class BouncrBackend implements AuthBackend<HttpRequest, Map<String, Objec
         // form the 'profiles' map passed to UserPermissionPrincipal.
         Long id = Long.valueOf(Objects.toString(authenticationData.remove("uid"), "0"));
         String account = (String) authenticationData.remove("sub");
-        List<String> permissions = Optional.ofNullable(authenticationData.remove("permissions"))
+        @SuppressWarnings("unchecked")
+        List<Object> permissions = Optional.ofNullable(authenticationData.remove("permissions"))
                 .filter(List.class::isInstance)
-                .map(List.class::cast)
+                .map(v -> (List<Object>) v)
                 .orElse(Collections.emptyList());
-        return new UserPermissionPrincipal(id, account, authenticationData,
-                (Set<String>) permissions.stream()
-                        .filter(Objects::nonNull)
-                        .map(Objects::toString)
-                        .collect(Collectors.toSet())
-        );
+        Set<String> permissionSet = permissions.stream()
+                .filter(Objects::nonNull)
+                .map(Objects::toString)
+                .collect(Collectors.toSet());
+        return new UserPermissionPrincipal(id, account, authenticationData, permissionSet);
+    }
+
+    /**
+     * Resolves the JCA algorithm name for a {@link SecretKeySpec} from the JWT header alg.
+     * Defaults to HmacSHA256 when the header is missing or the alg is not a recognised HS family.
+     */
+    private String hmacJcaName(JwtHeader header) {
+        if (header == null || header.alg() == null) return "HmacSHA256";
+        return switch (header.alg()) {
+            case "HS384" -> "HmacSHA384";
+            case "HS512" -> "HmacSHA512";
+            default -> "HmacSHA256";
+        };
     }
 
     /**
@@ -98,8 +112,7 @@ public class BouncrBackend implements AuthBackend<HttpRequest, Map<String, Objec
      * Throws MisconfigurationException when they do not match.
      * Returns silently when the token is unparseable (let verify() handle it).
      */
-    private void validateAlgFamilyOrThrow(String token) {
-        JwtHeader header = JwtProcessor.decodeHeader(token);
+    private void validateAlgFamilyOrThrow(JwtHeader header) {
         if (header == null || header.alg() == null) return;
         // Defence-in-depth: reject alg:none explicitly at this layer, independent of
         // any downstream library behaviour. Case-insensitive to block crafted variants.
@@ -132,6 +145,6 @@ public class BouncrBackend implements AuthBackend<HttpRequest, Map<String, Objec
      * Useful when a pre-configured shared mapper (e.g. with custom deserializers) is required.
      */
     public void setObjectMapper(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
+        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
     }
 }

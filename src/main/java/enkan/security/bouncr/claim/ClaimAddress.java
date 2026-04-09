@@ -1,4 +1,4 @@
-package net.unit8.bouncr.sign;
+package enkan.security.bouncr.claim;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 

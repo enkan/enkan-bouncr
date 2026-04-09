@@ -46,6 +46,11 @@ public class BouncrBackendTest {
         return JwtProcessor.sign(new JwtHeader("HS256"), json, new SecretKeySpec(key, "HmacSHA256"));
     }
 
+    private String signHmac(Map<String, Object> claims, byte[] key, String alg, String jcaName) throws Exception {
+        byte[] json = objectMapper.writeValueAsBytes(claims);
+        return JwtProcessor.sign(new JwtHeader(alg), json, new SecretKeySpec(key, jcaName));
+    }
+
     private String signRsa(Map<String, Object> claims, PrivateKey key) throws Exception {
         byte[] json = objectMapper.writeValueAsBytes(claims);
         return JwtProcessor.sign(new JwtHeader("RS256"), json, key);
@@ -69,6 +74,18 @@ public class BouncrBackendTest {
     public void parseReturnsNullWhenNoCredentialHeader() {
         BouncrBackend backend = backendWithKey("secret".getBytes(StandardCharsets.UTF_8));
         assertThat(backend.parse(requestWithoutCredential())).isNull();
+    }
+
+    @Test
+    public void parseHmacToken512() throws Exception {
+        byte[] key = "my-hmac-secret-that-is-long-enough-for-hs512!!".getBytes(StandardCharsets.UTF_8);
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("sub", "kawasima");
+        String token = signHmac(claims, key, "HS512", "HmacSHA512");
+
+        BouncrBackend backend = backendWithKey(key);
+        Map<String, Object> result = backend.parse(requestWithCredential(token));
+        assertThat(result).containsEntry("sub", "kawasima");
     }
 
     @Test
