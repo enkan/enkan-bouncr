@@ -2,10 +2,10 @@ package enkan.security.bouncr;
 
 import enkan.MiddlewareChain;
 import enkan.annotation.Middleware;
-import enkan.data.HttpRequest;
-import enkan.data.HttpResponse;
 import enkan.data.Routable;
-import enkan.middleware.WebMiddleware;
+import enkan.web.data.HttpRequest;
+import enkan.web.data.HttpResponse;
+import enkan.web.middleware.WebMiddleware;
 import enkan.security.UserPrincipal;
 
 import jakarta.annotation.security.RolesAllowed;

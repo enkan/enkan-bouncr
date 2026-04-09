@@ -1,17 +1,18 @@
 package enkan.security.bouncr;
 
-import tools.jackson.core.type.TypeReference;
-import enkan.data.HttpRequest;
+import enkan.web.data.HttpRequest;
 import enkan.security.AuthBackend;
-import net.unit8.bouncr.sign.JsonWebToken;
-import net.unit8.bouncr.sign.JwtHeader;
+import enkan.web.jwt.JwtHeader;
+import enkan.web.jwt.JwtProcessor;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
-import jakarta.inject.Inject;
 import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 import java.security.PublicKey;
 import java.util.*;
 import java.util.stream.Collectors;
+import javax.crypto.spec.SecretKeySpec;
 
 import static enkan.util.ThreadingUtils.some;
 
@@ -25,24 +26,16 @@ import static enkan.util.ThreadingUtils.some;
  *   <li>{@link #setPublicKey(PublicKey)} — RSA or EC public key (RS/PS/ES family algorithms)</li>
  * </ul>
  *
- * <p>The {@link net.unit8.bouncr.sign.JsonWebToken} component must be injected via
- * {@code @Inject} or {@link #setJwt(JsonWebToken)} before use.
- *
  * <p>On successful verification, {@link #authenticate} returns a {@link UserPermissionPrincipal}
  * populated from the {@code uid}, {@code sub}, and {@code permissions} claims.
  */
 public class BouncrBackend implements AuthBackend<HttpRequest, Map<String, Object>> {
     private PublicKey publicKey;
     private byte[] key;
-
-    @Inject
-    private JsonWebToken jwt;
+    private ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public Map<String, Object> parse(HttpRequest request) {
-        if (jwt == null) {
-            throw new enkan.exception.MisconfigurationException("bouncr.JWT_COMPONENT_NOT_INJECTED");
-        }
         if (publicKey != null && key != null) {
             throw new enkan.exception.MisconfigurationException("bouncr.AMBIGUOUS_KEY_CONFIG");
         }
@@ -52,11 +45,16 @@ public class BouncrBackend implements AuthBackend<HttpRequest, Map<String, Objec
         return some(request.getHeaders().get("x-bouncr-credential"),
                 cred -> {
                     validateAlgFamilyOrThrow(cred);
+                    byte[] payload;
                     if (publicKey != null) {
-                        return jwt.unsign(cred, publicKey, new TypeReference<Map<String, Object>>() {});
+                        payload = JwtProcessor.verify(cred, publicKey);
                     } else {
-                        return jwt.unsign(cred, key, new TypeReference<Map<String, Object>>() {});
+                        // SecretKeySpec algorithm name is for documentation only; JcaVerifier
+                        // determines the actual MAC algorithm from the JWT header alg field.
+                        payload = JwtProcessor.verify(cred, new SecretKeySpec(key, "HmacSHA256"));
                     }
+                    if (payload == null) return null;
+                    return objectMapper.readValue(payload, new TypeReference<Map<String, Object>>() {});
                 })
                 .orElse(null);
     }
@@ -86,10 +84,10 @@ public class BouncrBackend implements AuthBackend<HttpRequest, Map<String, Objec
      * Validates that the JWT header's alg family matches the configured key type.
      * Asymmetric key (publicKey) requires RS/PS/ES algorithms; symmetric key requires HS algorithms.
      * Throws MisconfigurationException when they do not match.
-     * Returns silently when the token is unparseable (let unsign() handle it).
+     * Returns silently when the token is unparseable (let verify() handle it).
      */
     private void validateAlgFamilyOrThrow(String token) {
-        JwtHeader header = jwt.decodeHeader(token);
+        JwtHeader header = JwtProcessor.decodeHeader(token);
         if (header == null || header.alg() == null) return;
         boolean isHmac = header.alg().startsWith("HS");
         if (publicKey != null && isHmac) {
@@ -112,7 +110,11 @@ public class BouncrBackend implements AuthBackend<HttpRequest, Map<String, Objec
         this.key = key;
     }
 
-    public void setJwt(JsonWebToken jwt) {
-        this.jwt = jwt;
+    /**
+     * Overrides the default {@link ObjectMapper} used to deserialize JWT payload bytes.
+     * Useful when a pre-configured shared mapper (e.g. with custom deserializers) is required.
+     */
+    public void setObjectMapper(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
     }
 }
